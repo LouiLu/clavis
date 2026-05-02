@@ -10,6 +10,7 @@ Phase 1 is internal-only and does not include public registration. Users are see
 
 The platform has two main runtime services:
 
+- Admin portal: browser UI for platform admins, organization admins, service admins, developers, and viewers.
 - Platform control plane: owns users, organizations, memberships, roles, backend service registration, API key lifecycle, rate-limit policy, and audit logs.
 - API gateway: owns request-time API key validation, rate limiting, service resolution, routing, and upstream forwarding.
 
@@ -62,6 +63,58 @@ Core infrastructure:
 - Redis for gateway-side key/config cache and token bucket rate limiting.
 - Secrets manager or KMS for encryption material, signing secrets, and upstream credentials.
 - Structured logs, metrics, and traces for operations.
+
+## Technology Stack
+
+Phase 1 uses a lightweight frontend, a TypeScript control plane, and a custom Go gateway.
+
+### Admin Portal
+
+- React.
+- TypeScript.
+- Vite.
+- TanStack Router.
+- TanStack Query.
+- shadcn/ui or Radix UI with Tailwind CSS.
+- OpenAPI-generated API client from the control plane contract.
+
+The admin portal is an authenticated single-page application. It does not need Next.js in Phase 1 because the NestJS control plane owns backend behavior, there is no SEO requirement, and the portal does not need server-side rendering or server components. Vite keeps the portal simpler and lighter while still giving a production build pipeline.
+
+### Control Plane API
+
+- NestJS.
+- Fastify adapter.
+- Prisma ORM.
+- Postgres.
+- Argon2id for local password hashing, with bcrypt as fallback if needed.
+- OpenAPI/Swagger generation for API docs and portal client generation.
+
+NestJS gives the control plane strong module boundaries for users, organizations, services, API keys, rate limits, and audit logs. Fastify is the preferred HTTP adapter for performance and operational headroom. Prisma is the preferred ORM because it is TypeScript-first, has generated types, and keeps schema/migration ownership explicit.
+
+TypeORM is a viable alternative if the team strongly prefers decorator-based entity classes and a traditional ORM model, but it is not the Phase 1 default.
+
+### API Gateway
+
+- Go.
+- `net/http`.
+- `chi` router.
+- `httputil.ReverseProxy`.
+- Redis-backed token bucket rate limiting.
+- OpenTelemetry instrumentation.
+
+The gateway is custom in Phase 1 because it needs tight integration with the platform's API key model, service ownership, revocation, route allowlists, key-specific rate limits, and audit/usage events. A small Go gateway keeps this request path explicit and avoids operating a second gateway management plane too early.
+
+Kong, Traefik, and Envoy remain future options:
+
+- Traefik can sit in front later for TLS, ingress, and general reverse-proxy concerns.
+- Kong is a good future fit if the platform wants a mature API gateway product and accepts syncing service/key state into Kong or writing plugins.
+- Envoy is a good future fit for very high-scale service-mesh style traffic control.
+
+### Local Development And Deployment
+
+- Docker Compose for local Postgres, Redis, control plane, gateway, admin portal, and sample backend service.
+- Docker images for deployable services.
+- Kubernetes can be introduced later when the deployment environment needs orchestration, autoscaling, or ingress integration.
 
 ## Unified User Model
 
@@ -472,6 +525,7 @@ Alerts:
 
 Phase 1 includes:
 
+- React/Vite admin portal for internal management.
 - Seeded or admin-created users.
 - Login for admin-created users.
 - Organizations and memberships.
@@ -486,6 +540,8 @@ Phase 1 includes:
 - Redis-backed token bucket rate limiting.
 - Redis-backed key/service config cache.
 - Postgres durable storage.
+- NestJS/Fastify control plane using Prisma.
+- Custom Go gateway using `net/http`, `chi`, and `httputil.ReverseProxy`.
 - Audit logs for management actions.
 - Gateway logs and metrics for runtime traffic.
 
@@ -525,7 +581,6 @@ Phase 4:
 
 These choices can be finalized during implementation planning:
 
-- Exact backend language/framework.
 - Exact password hashing library and operational parameters.
 - Redis failure policy for rate limiting in each environment.
 - Whether deleted API keys are soft-deleted or hard-deleted after retention.
