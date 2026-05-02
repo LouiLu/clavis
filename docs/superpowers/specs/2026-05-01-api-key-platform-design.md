@@ -114,7 +114,24 @@ Kong, Traefik, and Envoy remain future options:
 
 - Docker Compose for local Postgres, Redis, control plane, gateway, admin portal, and sample backend service.
 - Docker images for deployable services.
+- A completed Phase 1 build should start with `docker compose up -d` from the repository root.
+- Compose should run database migrations and seed the initial platform admin account and sample organization through an explicit startup job.
+- Compose should expose predictable local ports for the admin portal, control plane API, gateway, Postgres, Redis, and sample backend.
+- The sample backend should register as a service target such as `http://sample-backend:6060` so the plug-and-play gateway flow can be tested end to end.
+- Runtime configuration should come from `.env` files and documented environment variables, with `.env.example` committed and real secrets excluded.
 - Kubernetes can be introduced later when the deployment environment needs orchestration, autoscaling, or ingress integration.
+
+Expected local services:
+
+```text
+admin-portal     React/Vite UI
+control-plane    NestJS/Fastify API
+gateway          Go reverse proxy/API gateway
+postgres         Durable relational storage
+redis            Cache and rate-limit counters
+sample-backend   Example HTTP service on port 6060
+migrate-seed     One-shot migration and bootstrap job
+```
 
 ## Unified User Model
 
@@ -542,6 +559,9 @@ Phase 1 includes:
 - Postgres durable storage.
 - NestJS/Fastify control plane using Prisma.
 - Custom Go gateway using `net/http`, `chi`, and `httputil.ReverseProxy`.
+- Single-command Docker Compose deployment with `docker compose up -d`.
+- One-shot migration and seed job for initial admin account and sample organization.
+- Sample backend service for local end-to-end gateway testing.
 - Audit logs for management actions.
 - Gateway logs and metrics for runtime traffic.
 
