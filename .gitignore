@@ -5,6 +5,7 @@ coverage
 .env.local
 .DS_Store
 *.log
+*.tsbuildinfo
 tmp
 apps/**/.turbo
 apps/**/node_modules
