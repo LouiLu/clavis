@@ -6,3 +6,111 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+
+enum UserType {
+  internal
+  external
+}
+
+enum UserStatus {
+  active
+  suspended
+  deleted
+}
+
+enum IdentityProvider {
+  local
+  company_sso
+  password
+  google
+  github
+}
+
+enum OrganizationType {
+  internal
+  customer
+  partner
+}
+
+enum MembershipRole {
+  platform_admin
+  org_admin
+  service_admin
+  developer
+  viewer
+}
+
+enum RecordStatus {
+  active
+  disabled
+}
+
+model User {
+  id           String       @id @default(uuid())
+  email        String       @unique
+  displayName  String       @map("display_name")
+  passwordHash String       @map("password_hash")
+  userType     UserType     @default(internal) @map("user_type")
+  status       UserStatus   @default(active)
+  identities   Identity[]
+  memberships  Membership[]
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model Identity {
+  id              String           @id @default(uuid())
+  userId          String           @map("user_id")
+  provider        IdentityProvider
+  providerSubject String           @map("provider_subject")
+  emailVerified   Boolean          @default(false) @map("email_verified")
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt       DateTime         @default(now()) @map("created_at")
+
+  @@unique([provider, providerSubject])
+  @@map("identities")
+}
+
+model Organization {
+  id               String           @id @default(uuid())
+  name             String
+  organizationType OrganizationType @default(internal) @map("organization_type")
+  status           RecordStatus     @default(active)
+  memberships      Membership[]
+  services         BackendService[]
+  createdAt        DateTime         @default(now()) @map("created_at")
+
+  @@map("organizations")
+}
+
+model Membership {
+  id             String         @id @default(uuid())
+  userId         String         @map("user_id")
+  organizationId String         @map("organization_id")
+  role           MembershipRole
+  status         RecordStatus   @default(active)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime       @default(now()) @map("created_at")
+
+  @@unique([userId, organizationId, role])
+  @@map("memberships")
+}
+
+model BackendService {
+  id                 String       @id @default(uuid())
+  organizationId     String       @map("organization_id")
+  name               String
+  slug               String       @unique
+  baseUrl            String       @map("base_url")
+  allowedRoutes      Json         @map("allowed_routes")
+  upstreamAuthConfig Json?        @map("upstream_auth_config")
+  status             RecordStatus @default(active)
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  @@map("backend_services")
+}
