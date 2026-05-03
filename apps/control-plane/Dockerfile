@@ -12,12 +12,12 @@ RUN pnpm prisma:generate
 RUN pnpm build
 
 FROM node:22-alpine AS runtime
-WORKDIR /app
+WORKDIR /workspace/apps/control-plane
 RUN corepack enable
-COPY --from=deps /workspace/node_modules /workspace/node_modules
-COPY --from=deps /workspace/apps/control-plane/node_modules ./node_modules
-COPY --from=build /workspace/apps/control-plane/dist ./dist
-COPY --from=build /workspace/apps/control-plane/prisma ./prisma
-COPY apps/control-plane/package.json ./package.json
+COPY --from=build /workspace/node_modules /workspace/node_modules
+COPY --from=build /workspace/apps/control-plane/node_modules /workspace/apps/control-plane/node_modules
+COPY --from=build /workspace/apps/control-plane/dist /workspace/apps/control-plane/dist
+COPY --from=build /workspace/apps/control-plane/prisma /workspace/apps/control-plane/prisma
+COPY apps/control-plane/package.json /workspace/apps/control-plane/package.json
 EXPOSE 4000
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/src/main.js"]
