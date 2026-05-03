@@ -1,0 +1,12 @@
+node_modules
+dist
+coverage
+.env
+.env.local
+.DS_Store
+*.log
+tmp
+apps/**/.turbo
+apps/**/node_modules
+apps/**/dist
+apps/**/.vite
