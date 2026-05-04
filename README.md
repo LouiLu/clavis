@@ -22,3 +22,10 @@ Default seeded admin:
 
 - Email: `admin@example.local`
 - Password: value of `SEED_ADMIN_PASSWORD` in `.env`
+
+## Control Plane Smoke Flow
+
+1. Login with the seeded admin.
+2. List backend services.
+3. Create an API key for the sample service.
+4. Validate the key through the internal validation endpoint.
