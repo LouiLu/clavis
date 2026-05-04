@@ -3,13 +3,22 @@ import { ApiKeysModule } from './api-keys/api-keys.module';
 import { AuthModule } from './auth/auth.module';
 import { AuditLogModule } from './audit/audit-log.module';
 import { HealthController } from './health.controller';
+import { GatewayValidationModule } from './gateway-validation/gateway-validation.module';
 import { MeModule } from './me/me.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { PrismaService } from './prisma.service';
 import { BackendServicesModule } from './services/backend-services.module';
 
 @Module({
-  imports: [ApiKeysModule, AuthModule, AuditLogModule, MeModule, OrganizationsModule, BackendServicesModule],
+  imports: [
+    ApiKeysModule,
+    AuthModule,
+    AuditLogModule,
+    GatewayValidationModule,
+    MeModule,
+    OrganizationsModule,
+    BackendServicesModule,
+  ],
   controllers: [HealthController],
   providers: [PrismaService],
 })
