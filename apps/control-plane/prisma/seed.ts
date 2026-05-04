@@ -60,13 +60,14 @@ async function main(): Promise<void> {
     },
   });
 
-  await prisma.backendService.upsert({
+  const service = await prisma.backendService.upsert({
     where: { slug: serviceSlug },
     update: {
       name: serviceName,
       baseUrl: serviceBaseUrl,
       allowedRoutes: [{ method: 'GET', path: '/*' }],
       status: 'active',
+      createdByUserId: user.id,
     },
     create: {
       organizationId: organization.id,
@@ -75,6 +76,29 @@ async function main(): Promise<void> {
       baseUrl: serviceBaseUrl,
       allowedRoutes: [{ method: 'GET', path: '/*' }],
       status: 'active',
+      createdByUserId: user.id,
+    },
+  });
+
+  await prisma.rateLimitPolicy.upsert({
+    where: {
+      targetType_targetId: {
+        targetType: 'backend_service',
+        targetId: service.id,
+      },
+    },
+    update: {
+      requestsPerInterval: 1000,
+      intervalSeconds: 60,
+      burstSize: 100,
+    },
+    create: {
+      targetType: 'backend_service',
+      targetId: service.id,
+      backendServiceId: service.id,
+      requestsPerInterval: 1000,
+      intervalSeconds: 60,
+      burstSize: 100,
     },
   });
 
