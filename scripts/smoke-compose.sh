@@ -23,9 +23,6 @@ curl_json http://localhost:8080/health | grep '"service":"gateway"'
 echo "Checking sample backend..."
 curl_json http://localhost:6060/health | grep '"service":"sample-backend"'
 
-echo "Checking gateway proxy to sample backend..."
-curl_json http://localhost:8080/proxy/sample/health | grep '"service":"sample-backend"'
-
 echo "Checking database seed..."
 docker compose exec -T postgres psql -U "${POSTGRES_USER:-platform}" -d "${POSTGRES_DB:-platform}" -c "select email from users where email = '${SEED_ADMIN_EMAIL:-admin@example.local}';" | grep "${SEED_ADMIN_EMAIL:-admin@example.local}"
 docker compose exec -T postgres psql -U "${POSTGRES_USER:-platform}" -d "${POSTGRES_DB:-platform}" -c "select slug from backend_services where slug = '${SEED_SERVICE_SLUG:-sample}';" | grep "${SEED_SERVICE_SLUG:-sample}"
@@ -69,6 +66,24 @@ curl --fail --silent --show-error -X POST http://localhost:4000/internal/v1/api-
   -H 'content-type: application/json' \
   -d "{\"api_key\":\"${API_KEY}\",\"service_slug\":\"${SEED_SERVICE_SLUG:-sample}\",\"method\":\"GET\",\"path\":\"/health\"}" |
   grep '"valid":true'
+
+echo "Checking gateway enforcement — missing key returns 401..."
+HTTP_CODE="$(curl --silent --show-error -o /dev/null -w '%{http_code}' http://localhost:8080/proxy/sample/health)"
+test "${HTTP_CODE}" = "401" || { echo "Expected 401 for missing key, got ${HTTP_CODE}"; exit 1; }
+
+echo "Checking gateway enforcement — invalid key returns 401..."
+HTTP_CODE="$(curl --silent --show-error -o /dev/null -w '%{http_code}' http://localhost:8080/proxy/sample/health -H 'authorization: Bearer pk_live_bad.invalidkey12345678901234567890')"
+test "${HTTP_CODE}" = "401" || { echo "Expected 401 for invalid key, got ${HTTP_CODE}"; exit 1; }
+
+echo "Checking gateway enforcement — valid key returns 200..."
+HTTP_CODE="$(curl --silent --show-error -o /dev/null -w '%{http_code}' http://localhost:8080/proxy/sample/health -H "authorization: Bearer ${API_KEY}")"
+test "${HTTP_CODE}" = "200" || { echo "Expected 200 for valid key, got ${HTTP_CODE}"; exit 1; }
+
+echo "Checking gateway enforcement — valid proxy returns rate-limit headers..."
+curl --fail --silent --show-error http://localhost:8080/proxy/sample/health -H "authorization: Bearer ${API_KEY}" -i | grep 'X-RateLimit-Limit'
+
+echo "Checking gateway enforcement — valid proxy returns upstream response..."
+curl --fail --silent --show-error http://localhost:8080/proxy/sample/health -H "authorization: Bearer ${API_KEY}" | grep '"service":"sample-backend"'
 
 echo "Checking audit logs..."
 curl --fail --silent --show-error http://localhost:4000/v1/audit-logs \
