@@ -80,7 +80,7 @@ HTTP_CODE="$(curl --silent --show-error -o /dev/null -w '%{http_code}' http://lo
 test "${HTTP_CODE}" = "200" || { echo "Expected 200 for valid key, got ${HTTP_CODE}"; exit 1; }
 
 echo "Checking gateway enforcement — valid proxy returns rate-limit headers..."
-curl --fail --silent --show-error http://localhost:8080/proxy/sample/health -H "authorization: Bearer ${API_KEY}" -i | grep 'X-RateLimit-Limit'
+curl --fail --silent --show-error http://localhost:8080/proxy/sample/health -H "authorization: Bearer ${API_KEY}" -i | grep -i 'x-ratelimit-limit'
 
 echo "Checking gateway enforcement — valid proxy returns upstream response..."
 curl --fail --silent --show-error http://localhost:8080/proxy/sample/health -H "authorization: Bearer ${API_KEY}" | grep '"service":"sample-backend"'

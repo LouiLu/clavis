@@ -19,9 +19,11 @@ func main() {
 
 	validationClient := validation.NewClient(cfg.ControlPlaneURL)
 
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: cfg.RedisURL,
-	})
+	redisOpts, err := redis.ParseURL(cfg.RedisURL)
+	if err != nil {
+		log.Fatalf("invalid REDIS_URL: %v", err)
+	}
+	redisClient := redis.NewClient(redisOpts)
 	defer redisClient.Close()
 
 	dynamicProxy := proxy.NewDynamicProxy()
