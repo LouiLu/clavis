@@ -13,5 +13,6 @@ ENV VITE_CONTROL_PLANE_URL=$VITE_CONTROL_PLANE_URL
 RUN pnpm build
 
 FROM nginx:1.27-alpine AS runtime
+COPY apps/admin-portal/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /workspace/apps/admin-portal/dist /usr/share/nginx/html
 EXPOSE 80
