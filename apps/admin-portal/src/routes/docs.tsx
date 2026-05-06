@@ -10,6 +10,7 @@ const SECTIONS = [
   { id: 'monitoring', label: 'Monitoring & Metrics' },
   { id: 'performance', label: 'Performance & Capacity' },
   { id: 'deployment', label: 'Deployment & Scaling' },
+  { id: 'server-specs', label: 'Server Requirements' },
 ];
 
 function DocsNav({ activeId }: { activeId: string }) {
@@ -549,6 +550,123 @@ kubectl get ingress -n clavis`}</pre>
               Start with Tier 2 (Compose + managed DB/Redis). It gives you 90% of the
               reliability benefit with 10% of the operational complexity. Move to Kubernetes
               when you need pod-level autoscaling, canary deploys, or multi-region.
+            </p>
+          </div>
+        </section>
+
+        <section className="docs-section" id="server-specs">
+          <h2>Server Requirements</h2>
+          <p>
+            Estimated specs for running all Clavis services. Adjust based on your
+            expected volume (see <a href="#performance">Performance & Capacity</a> for
+            per-tier throughput estimates).
+          </p>
+
+          <h3>Development / Staging</h3>
+          <p>All services on a single machine via Docker Compose.</p>
+          <div className="docs-table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr><th>Resource</th><th>Minimum</th><th>Recommended</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>CPU</td><td>2 cores</td><td>4 cores</td></tr>
+                <tr><td>RAM</td><td>4 GB</td><td>8 GB</td></tr>
+                <tr><td>Disk</td><td>10 GB</td><td>20 GB SSD</td></tr>
+                <tr><td>OS</td><td colSpan={2}>Linux (amd64) — Ubuntu 22.04+, Debian 12+, or Amazon Linux 2023</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            8 GB RAM comfortably runs all six containers (PostgreSQL, Redis, control
+            plane, gateway, admin portal, sample backend) with room for PostgreSQL
+            buffer cache and metrics data growth.
+          </p>
+
+          <h3>Production — Single Server</h3>
+          <p>Tier 1: Docker Compose on one machine. Suitable up to ~100M calls/month.</p>
+          <div className="docs-table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr><th>Resource</th><th>Spec</th><th>Notes</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>CPU</td><td>4–8 vCPUs</td><td>Gateway and control plane are the primary consumers</td></tr>
+                <tr><td>RAM</td><td>16 GB</td><td>8 GB for PostgreSQL buffer cache, 4 GB for Node.js, 4 GB headroom</td></tr>
+                <tr><td>Disk</td><td>50 GB SSD</td><td>Provisioned IOPS recommended for metrics write throughput</td></tr>
+                <tr><td>Network</td><td>1 Gbps</td><td>Internal Docker network; external ingress depends on LB</td></tr>
+                <tr><td>OS</td><td colSpan={2}>Linux (amd64), Docker Engine 24+, Docker Compose v2</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Production — Managed Services</h3>
+          <p>Tier 2: Application on VM, PostgreSQL and Redis managed.</p>
+          <div className="docs-table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr><th>Component</th><th>Spec</th><th>Example (AWS)</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><strong>App VM</strong> (gateway + control plane)</td><td>2–4 vCPU, 8 GB RAM</td><td>t4g.large or c6g.large</td></tr>
+                <tr><td><strong>PostgreSQL</strong></td><td>2 vCPU, 4 GB, 50 GB SSD</td><td>RDS db.t4g.medium</td></tr>
+                <tr><td><strong>Redis</strong></td><td>2 vCPU, 1 GB</td><td>ElastiCache cache.t4g.micro</td></tr>
+                <tr><td><strong>Admin Portal</strong></td><td>Static hosting</td><td>S3 + CloudFront (512 MB)</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            Scale the App VM horizontally behind a load balancer as volume grows.
+            The gateway already supports <code>CONTROL_PLANE_URL</code> pointing at
+            a load balancer endpoint.
+          </p>
+
+          <h3>Production — Kubernetes</h3>
+          <p>Tier 3: All application services on k8s with managed data stores.</p>
+          <div className="docs-table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr><th>Service</th><th>Replicas</th><th>CPU req/limit</th><th>Memory req/limit</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><strong>Gateway</strong></td><td>3–20 (HPA)</td><td>100m / 500m</td><td>64 Mi / 256 Mi</td></tr>
+                <tr><td><strong>Control Plane</strong></td><td>2–10 (HPA)</td><td>250m / 1000m</td><td>256 Mi / 512 Mi</td></tr>
+                <tr><td><strong>Admin Portal</strong></td><td>2</td><td>50m / 200m</td><td>32 Mi / 128 Mi</td></tr>
+                <tr className="docs-table-divider"><td colSpan={5}></td></tr>
+                <tr><td colSpan={2}><strong>Total baseline</strong></td><td><strong>1150m CPU</strong></td><td><strong>~1 GB RAM</strong></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            Baseline cluster needs ~2 vCPUs and 2 GB allocatable memory for the
+            application pods. With 3× headroom for spikes: <strong>8 vCPUs, 8 GB
+            across the node pool</strong>. Managed PostgreSQL and Redis are provisioned
+            separately (same specs as Tier 2).
+          </p>
+
+          <h3>Component Memory Breakdown</h3>
+          <div className="docs-table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr><th>Component</th><th>Memory</th><th>Why</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>PostgreSQL</td><td>8 GB recommended</td><td>Buffer cache for metrics queries; shared_buffers = 2 GB, work_mem = 64 MB</td></tr>
+                <tr><td>Redis</td><td>512 MB–1 GB</td><td>Rate limit counters are tiny; extra for optional caching</td></tr>
+                <tr><td>Control Plane (Node.js)</td><td>256–512 MB per instance</td><td>NestJS + Prisma; heap grows with concurrent requests</td></tr>
+                <tr><td>Gateway (Go)</td><td>64–256 MB per instance</td><td>Validation cache (map), log buffer channel (10K entries)</td></tr>
+                <tr><td>Admin Portal (nginx)</td><td>32–128 MB</td><td>Static file serving; negligible</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="docs-callout">
+            <strong>Cloud instance guidance</strong>
+            <p>
+              For Tier 1 (single server): an <strong>AWS c6g.xlarge</strong> (4 vCPU,
+              8 GB) or <strong>GCP c4a-standard-4</strong> handles ~100M calls/month
+              comfortably. For Tier 2 (managed data), drop to a <strong>t4g.large</strong>
+              and add RDS + ElastiCache.
             </p>
           </div>
         </section>
