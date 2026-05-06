@@ -1,5 +1,5 @@
 {
-  "name": "api-key-platform",
+  "name": "clavis",
   "private": true,
   "packageManager": "pnpm@10.0.0",
   "scripts": {

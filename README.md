@@ -1,6 +1,6 @@
-# API Key Platform
+# Clavis
 
-An open-source API key management platform with a React admin portal, NestJS control plane, Go gateway, Postgres, and Redis. Create and manage API keys, enforce access control, and apply rate limiting — all from a single `docker compose up`.
+**Clavis** (Latin for "key") is an open-source API key management platform. React admin portal, NestJS control plane, Go gateway, Postgres, and Redis. Create and manage API keys, enforce access control, and apply rate limiting — all from a single `docker compose up`.
 
 ## Architecture
 
@@ -78,8 +78,8 @@ An open-source API key management platform with a React admin portal, NestJS con
 ## Quick Start
 
 ```bash
-git clone https://github.com/your-org/api-key-platform.git
-cd api-key-platform
+git clone https://github.com/LouiLu/clavis.git
+cd clavis
 
 # Create your .env from the template
 cp .env.example .env

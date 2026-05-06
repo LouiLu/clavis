@@ -33,8 +33,8 @@ function LoginPage() {
   return (
     <main className="login-shell">
       <form className="login-form" onSubmit={handleSubmit}>
-        <p className="eyebrow">Internal Control Plane</p>
-        <h1>API Key Platform</h1>
+        <p className="eyebrow">API Key Management</p>
+        <h1>Clavis</h1>
         {error && <div className="form-error">{error}</div>}
         <div className="form-group">
           <label htmlFor="email">Email</label>

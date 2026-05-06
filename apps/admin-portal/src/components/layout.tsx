@@ -19,7 +19,7 @@ export function Layout() {
     <div className="layout">
       <aside className="sidebar">
         <div className="sidebar-header">
-          <h2 className="sidebar-title">Platform</h2>
+          <h2 className="sidebar-title">Clavis</h2>
         </div>
         <nav className="sidebar-nav">
           {navLink('/', 'Dashboard')}
