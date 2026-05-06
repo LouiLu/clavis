@@ -46,6 +46,8 @@ function ApiKeysPage() {
   const [error, setError] = useState<string | null>(null);
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [newKeyName, setNewKeyName] = useState('');
 
   const { data: service } = useQuery({
     queryKey: ['service', serviceId],
@@ -63,6 +65,8 @@ function ApiKeysPage() {
     onSuccess: (result) => {
       setRevealedKey(result.api_key);
       queryClient.invalidateQueries({ queryKey: ['api-keys', serviceId] });
+      setShowCreate(false);
+      setNewKeyName('');
       setError(null);
     },
     onError: (err: Error) => setError(err.message),
@@ -91,10 +95,10 @@ function ApiKeysPage() {
     },
   });
 
-  const handleCreate = () => {
-    const name = prompt('Key name:');
-    if (name) {
-      createMutation.mutate(name);
+  const handleCreate = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newKeyName.trim()) {
+      createMutation.mutate(newKeyName.trim());
     }
   };
 
@@ -111,13 +115,42 @@ function ApiKeysPage() {
             <Link to="/services">All services</Link>
           </p>
         </div>
-        <button className="btn-primary" onClick={handleCreate}>
+        <button className="btn-primary" onClick={() => { setShowCreate(true); setNewKeyName(''); }}>
           Create Key
         </button>
       </div>
 
       {revealedKey && (
         <ApiKeyReveal apiKey={revealedKey} onDone={() => setRevealedKey(null)} />
+      )}
+
+      {showCreate && (
+        <div className="card mb-4">
+          <h2>Create API Key</h2>
+          <form onSubmit={handleCreate}>
+            <div className="form-row">
+              <div className="form-group" style={{ flex: 2 }}>
+                <label htmlFor="key-name">Key Name</label>
+                <input
+                  id="key-name"
+                  value={newKeyName}
+                  onChange={(e) => setNewKeyName(e.target.value)}
+                  placeholder="e.g. Production CI"
+                  autoFocus
+                  required
+                />
+              </div>
+            </div>
+            <div className="flex-row" style={{ marginTop: 4 }}>
+              <button type="submit" className="btn-primary" disabled={createMutation.isPending}>
+                {createMutation.isPending ? 'Creating...' : 'Create'}
+              </button>
+              <button type="button" className="btn-secondary" onClick={() => setShowCreate(false)}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
       )}
 
       {error && <div className="form-error mb-4">{error}</div>}
@@ -127,7 +160,7 @@ function ApiKeysPage() {
       ) : keys.length === 0 ? (
         <div className="empty-state">
           <p>No API keys for this service yet.</p>
-          <p><button className="btn-primary" onClick={handleCreate}>Create your first key</button></p>
+          <p><button className="btn-primary" onClick={() => { setShowCreate(true); setNewKeyName(''); }}>Create your first key</button></p>
         </div>
       ) : (
         <div className="data-table">

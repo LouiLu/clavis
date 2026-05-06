@@ -25,10 +25,17 @@ interface ServicesResponse {
   items: ServiceItem[];
 }
 
+type ConfirmAction = {
+  type: 'disable' | 'delete';
+  id: string;
+  name: string;
+} | null;
+
 function ServicesListPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['services'],
@@ -37,15 +44,20 @@ function ServicesListPage() {
 
   const disableMutation = useMutation({
     mutationFn: (serviceId: string) => api.delete(`/v1/services/${serviceId}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['services'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['services'] });
+      setConfirmAction(null);
+    },
+    onError: (err: Error) => setError(err.message),
   });
 
   const deleteMutation = useMutation({
     mutationFn: (serviceId: string) => api.post(`/v1/services/${serviceId}/delete`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['services'] });
-      setDeleteTarget(null);
+      setConfirmAction(null);
     },
+    onError: (err: Error) => setError(err.message),
   });
 
   const services = data?.items ?? [];
@@ -58,6 +70,8 @@ function ServicesListPage() {
           Create Service
         </button>
       </div>
+
+      {error && <div className="form-error mb-4">{error}</div>}
 
       {isLoading ? (
         <div className="empty-state"><p>Loading...</p></div>
@@ -113,11 +127,7 @@ function ServicesListPage() {
                       {svc.status === 'active' && (
                         <button
                           className="btn-danger"
-                          onClick={() => {
-                            if (confirm(`Disable "${svc.name}"?`)) {
-                              disableMutation.mutate(svc.id);
-                            }
-                          }}
+                          onClick={() => setConfirmAction({ type: 'disable', id: svc.id, name: svc.name })}
                         >
                           Disable
                         </button>
@@ -125,7 +135,7 @@ function ServicesListPage() {
                       {svc.status === 'disabled' && (
                         <button
                           className="btn-danger"
-                          onClick={() => setDeleteTarget({ id: svc.id, name: svc.name })}
+                          onClick={() => setConfirmAction({ type: 'delete', id: svc.id, name: svc.name })}
                         >
                           Delete
                         </button>
@@ -139,14 +149,25 @@ function ServicesListPage() {
         </div>
       )}
 
-      {deleteTarget && (
+      {confirmAction?.type === 'disable' && (
+        <ConfirmDialog
+          title="Disable Backend Service"
+          message={`Disable "${confirmAction.name}"? Any API keys for this service will stop working. The service can be re-enabled later.`}
+          confirmLabel="Disable"
+          danger
+          onConfirm={() => disableMutation.mutate(confirmAction.id)}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
+
+      {confirmAction?.type === 'delete' && (
         <ConfirmDialog
           title="Delete Backend Service"
-          message={`Permanently delete "${deleteTarget.name}"? All API keys for this service will be deleted. This cannot be undone.`}
+          message={`Permanently delete "${confirmAction.name}"? All API keys for this service will be deleted. This cannot be undone.`}
           confirmLabel="Delete"
           danger
-          onConfirm={() => deleteMutation.mutate(deleteTarget.id)}
-          onCancel={() => setDeleteTarget(null)}
+          onConfirm={() => deleteMutation.mutate(confirmAction.id)}
+          onCancel={() => setConfirmAction(null)}
         />
       )}
     </div>

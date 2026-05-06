@@ -23,13 +23,17 @@ interface ServiceDetail {
   updated_at: string;
 }
 
+type ConfirmAction = {
+  type: 'disable' | 'delete';
+} | null;
+
 function ServiceDetailPage() {
   const { serviceId } = useParams({ from: '/_auth/services/$serviceId' });
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showDelete, setShowDelete] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
 
   const { data: service, isLoading } = useQuery({
     queryKey: ['service', serviceId],
@@ -45,6 +49,18 @@ function ServiceDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['service', serviceId] });
       queryClient.invalidateQueries({ queryKey: ['services'] });
       setEditing(false);
+      setError(null);
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  const disableMutation = useMutation({
+    mutationFn: () => api.delete(`/v1/services/${serviceId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['services'] });
+      queryClient.invalidateQueries({ queryKey: ['service', serviceId] });
+      setConfirmAction(null);
+      setError(null);
     },
     onError: (err: Error) => setError(err.message),
   });
@@ -55,14 +71,7 @@ function ServiceDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['services'] });
       navigate({ to: '/services' });
     },
-  });
-
-  const disableMutation = useMutation({
-    mutationFn: () => api.delete(`/v1/services/${serviceId}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['services'] });
-      navigate({ to: '/services' });
-    },
+    onError: (err: Error) => setError(err.message),
   });
 
   const startEdit = () => {
@@ -99,17 +108,13 @@ function ServiceDetailPage() {
           {service.status === 'active' && (
             <button
               className="btn-danger"
-              onClick={() => {
-                if (confirm(`Permanently disable "${service.name}"?`)) {
-                  disableMutation.mutate();
-                }
-              }}
+              onClick={() => setConfirmAction({ type: 'disable' })}
             >
               Disable
             </button>
           )}
           {service.status === 'disabled' && (
-            <button className="btn-danger" onClick={() => setShowDelete(true)}>
+            <button className="btn-danger" onClick={() => setConfirmAction({ type: 'delete' })}>
               Delete
             </button>
           )}
@@ -172,14 +177,25 @@ function ServiceDetailPage() {
         )}
       </div>
 
-      {showDelete && (
+      {confirmAction?.type === 'disable' && (
+        <ConfirmDialog
+          title="Disable Backend Service"
+          message={`Disable "${service.name}"? Any API keys for this service will stop working. The service can be re-enabled later.`}
+          confirmLabel="Disable"
+          danger
+          onConfirm={() => disableMutation.mutate()}
+          onCancel={() => setConfirmAction(null)}
+        />
+      )}
+
+      {confirmAction?.type === 'delete' && (
         <ConfirmDialog
           title="Delete Backend Service"
           message={`Permanently delete "${service.name}"? All API keys for this service will be deleted. This cannot be undone.`}
           confirmLabel="Delete"
           danger
           onConfirm={() => deleteMutation.mutate()}
-          onCancel={() => setShowDelete(false)}
+          onCancel={() => setConfirmAction(null)}
         />
       )}
     </div>
