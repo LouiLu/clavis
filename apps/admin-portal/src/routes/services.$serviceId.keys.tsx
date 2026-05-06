@@ -52,7 +52,7 @@ function ApiKeysPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [newKeyName, setNewKeyName] = useState('');
   const [newKeyExpiry, setNewKeyExpiry] = useState('');
-  const [editingExpiry, setEditingExpiry] = useState<{ keyId: string; expiresAt: string } | null>(null);
+  const [editingExpiry, setEditingExpiry] = useState<{ keyId: string; expiresAt: string; x: number; y: number } | null>(null);
   const [rateLimitKeyId, setRateLimitKeyId] = useState<string | null>(null);
 
   const { data: service } = useQuery({
@@ -251,50 +251,55 @@ function ApiKeysPage() {
                   </td>
                   <td>{new Date(key.created_at).toLocaleDateString()}</td>
                   <td>{key.last_used_at ? new Date(key.last_used_at).toLocaleString() : 'Never'}</td>
-                  <td>
-                    {editingExpiry?.keyId === key.id ? (
-                      <div className="flex-row">
+                  <td style={{ position: 'relative' }}>
+                    <span
+                      onClick={(e) => {
+                        if (key.status !== 'active') return;
+                        const rect = (e.target as HTMLElement).getBoundingClientRect();
+                        setEditingExpiry({
+                          keyId: key.id,
+                          expiresAt: key.expires_at ? key.expires_at.slice(0, 10) : '',
+                          x: rect.left,
+                          y: rect.bottom + 4,
+                        });
+                      }}
+                      style={{ cursor: key.status === 'active' ? 'pointer' : 'default' }}
+                      title={key.status === 'active' ? 'Click to edit' : undefined}
+                    >
+                      {key.expires_at ? new Date(key.expires_at).toLocaleDateString() : 'Never'}
+                      {key.status === 'active' && ' ✎'}
+                    </span>
+                    {editingExpiry?.keyId === key.id && (
+                      <>
+                        <div className="expiry-popover-backdrop" onClick={() => setEditingExpiry(null)} />
+                        <div className="expiry-popover" style={{ left: editingExpiry.x, top: editingExpiry.y }}>
                         <input
                           type="date"
                           value={editingExpiry.expiresAt}
-                          onChange={(e) => setEditingExpiry({ keyId: key.id, expiresAt: e.target.value })}
-                          style={{ width: 140, fontSize: 12 }}
+                          onChange={(e) => setEditingExpiry({ ...editingExpiry, expiresAt: e.target.value })}
+                          className="expiry-popover-input"
+                          autoFocus
                         />
-                        <button
-                          className="btn-primary"
-                          onClick={() => updateKeyMutation.mutate({
-                            keyId: key.id,
-                            data: { expires_at: editingExpiry.expiresAt || null },
-                          })}
-                          disabled={updateKeyMutation.isPending}
-                          style={{ fontSize: 11, padding: '4px 8px' }}
-                        >
-                          Save
-                        </button>
-                        <button
-                          className="btn-secondary"
-                          onClick={() => setEditingExpiry(null)}
-                          style={{ fontSize: 11, padding: '4px 8px' }}
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <span
-                        onClick={() => {
-                          if (key.status === 'active') {
-                            setEditingExpiry({
+                        <div className="expiry-popover-actions">
+                          <button
+                            className="btn-primary"
+                            onClick={() => updateKeyMutation.mutate({
                               keyId: key.id,
-                              expiresAt: key.expires_at ? key.expires_at.slice(0, 10) : '',
-                            });
-                          }
-                        }}
-                        style={{ cursor: key.status === 'active' ? 'pointer' : 'default' }}
-                        title={key.status === 'active' ? 'Click to edit' : undefined}
-                      >
-                        {key.expires_at ? new Date(key.expires_at).toLocaleDateString() : 'Never'}
-                        {key.status === 'active' && ' ✎'}
-                      </span>
+                              data: { expires_at: editingExpiry.expiresAt || null },
+                            })}
+                            disabled={updateKeyMutation.isPending}
+                          >
+                            {updateKeyMutation.isPending ? 'Saving...' : 'Save'}
+                          </button>
+                          <button
+                            className="btn-secondary"
+                            onClick={() => setEditingExpiry(null)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                      </>
                     )}
                   </td>
                   <td>

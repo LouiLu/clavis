@@ -713,6 +713,49 @@ a:hover {
   word-break: break-all;
 }
 
+/* ── Expiry popover ────────────────────────── */
+
+.expiry-popover-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+}
+
+.expiry-popover {
+  position: fixed;
+  z-index: 150;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
+  padding: 12px;
+  min-width: 240px;
+}
+
+.expiry-popover-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 13px;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.expiry-popover-actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.expiry-popover-actions .btn-primary,
+.expiry-popover-actions .btn-secondary {
+  font-size: 12px;
+  padding: 4px 12px;
+}
+
 /* ── Dialog ────────────────────────────────── */
 
 .dialog-overlay {
