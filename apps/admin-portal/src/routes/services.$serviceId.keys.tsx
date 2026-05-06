@@ -53,7 +53,7 @@ function ApiKeysPage() {
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
+  const [createPopover, setCreatePopover] = useState<{ x: number; y: number } | null>(null);
   const [newKeyName, setNewKeyName] = useState('');
   const [newKeyExpiry, setNewKeyExpiry] = useState('');
   const [editingExpiry, setEditingExpiry] = useState<{ keyId: string; expiresAt: string; x: number; y: number } | null>(null);
@@ -78,7 +78,7 @@ function ApiKeysPage() {
     onSuccess: (result) => {
       setRevealedKey(result.api_key);
       queryClient.invalidateQueries({ queryKey: ['api-keys', serviceId] });
-      setShowCreate(false);
+      setCreatePopover(null);
       setNewKeyName('');
       setNewKeyExpiry('');
       setError(null);
@@ -173,7 +173,15 @@ function ApiKeysPage() {
             <Link to="/services">All services</Link>
           </p>
         </div>
-        <button className="btn-primary" onClick={() => { setShowCreate(true); setNewKeyName(''); }}>
+        <button
+          className="btn-primary"
+          onClick={(e) => {
+            const rect = (e.target as HTMLElement).getBoundingClientRect();
+            setNewKeyName('');
+            setNewKeyExpiry('');
+            setCreatePopover({ x: popoverX(rect.right - 400, 400), y: rect.bottom + 4 });
+          }}
+        >
           Create Key
         </button>
       </div>
@@ -182,42 +190,45 @@ function ApiKeysPage() {
         <ApiKeyReveal apiKey={revealedKey} onDone={() => setRevealedKey(null)} />
       )}
 
-      {showCreate && (
-        <div className="card mb-4">
-          <h2>Create API Key</h2>
-          <form onSubmit={handleCreate}>
-            <div className="form-row">
-              <div className="form-group" style={{ flex: 2 }}>
-                <label htmlFor="key-name">Key Name</label>
-                <input
-                  id="key-name"
-                  value={newKeyName}
-                  onChange={(e) => setNewKeyName(e.target.value)}
-                  placeholder="e.g. Production CI"
-                  autoFocus
-                  required
-                />
+      {createPopover && (
+        <>
+          <div className="expiry-popover-backdrop" onClick={() => setCreatePopover(null)} />
+          <div className="create-key-popover" style={{ left: createPopover.x, top: createPopover.y }}>
+            <h3 style={{ margin: '0 0 12px', fontSize: 15 }}>Create API Key</h3>
+            <form onSubmit={handleCreate}>
+              <div className="rate-limit-fields-vertical">
+                <div className="form-group">
+                  <label htmlFor="key-name">Key Name</label>
+                  <input
+                    id="key-name"
+                    value={newKeyName}
+                    onChange={(e) => setNewKeyName(e.target.value)}
+                    placeholder="e.g. Production CI"
+                    autoFocus
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="key-expiry">Expires (optional)</label>
+                  <input
+                    id="key-expiry"
+                    type="date"
+                    value={newKeyExpiry}
+                    onChange={(e) => setNewKeyExpiry(e.target.value)}
+                  />
+                </div>
               </div>
-              <div className="form-group">
-                <label htmlFor="key-expiry">Expires (optional)</label>
-                <input
-                  id="key-expiry"
-                  type="date"
-                  value={newKeyExpiry}
-                  onChange={(e) => setNewKeyExpiry(e.target.value)}
-                />
+              <div className="flex-row" style={{ marginTop: 10 }}>
+                <button type="submit" className="btn-primary" disabled={createMutation.isPending}>
+                  {createMutation.isPending ? 'Creating...' : 'Create'}
+                </button>
+                <button type="button" className="btn-secondary" onClick={() => setCreatePopover(null)}>
+                  Cancel
+                </button>
               </div>
-            </div>
-            <div className="flex-row" style={{ marginTop: 4 }}>
-              <button type="submit" className="btn-primary" disabled={createMutation.isPending}>
-                {createMutation.isPending ? 'Creating...' : 'Create'}
-              </button>
-              <button type="button" className="btn-secondary" onClick={() => setShowCreate(false)}>
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
+            </form>
+          </div>
+        </>
       )}
 
       {error && <div className="form-error mb-4">{error}</div>}
@@ -227,7 +238,7 @@ function ApiKeysPage() {
       ) : keys.length === 0 ? (
         <div className="empty-state">
           <p>No API keys for this service yet.</p>
-          <p><button className="btn-primary" onClick={() => { setShowCreate(true); setNewKeyName(''); }}>Create your first key</button></p>
+          <p><button className="btn-primary" onClick={(e) => { const rect = (e.target as HTMLElement).getBoundingClientRect(); setNewKeyName(''); setNewKeyExpiry(''); setCreatePopover({ x: popoverX(rect.right - 400, 400), y: rect.bottom + 4 }); }}>Create your first key</button></p>
         </div>
       ) : (
         <div className="data-table">
@@ -329,7 +340,7 @@ function ApiKeysPage() {
                               setRateLimitPopover(
                                 rateLimitPopover?.keyId === key.id
                                   ? null
-                                  : { keyId: key.id, x: popoverX(rect.left, 376), y: rect.bottom + 4 },
+                                  : { keyId: key.id, x: popoverX(rect.right - 376, 376), y: rect.bottom + 4 },
                               );
                             }}
                           >

@@ -756,6 +756,19 @@ a:hover {
   padding: 4px 12px;
 }
 
+/* ── Create key popover ────────────────────── */
+
+.create-key-popover {
+  position: fixed;
+  z-index: 150;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
+  padding: 16px 18px;
+  width: 400px;
+}
+
 /* ── Rate limit popover ────────────────────── */
 
 .rate-limit-popover {
