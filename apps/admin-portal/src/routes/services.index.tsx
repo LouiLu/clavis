@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { authRoute } from './_auth';
 import { api } from '../api/client';
 import { ConfirmDialog } from '../components/confirm-dialog';
+import { Toast } from '../components/toast';
 
 interface ServiceItem {
   id: string;
@@ -36,6 +37,7 @@ function ServicesListPage() {
   const queryClient = useQueryClient();
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['services'],
@@ -47,8 +49,11 @@ function ServicesListPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['services'] });
       setConfirmAction(null);
+      setToast('Service disabled');
     },
-    onError: (err: Error) => setError(err.message),
+    onError: () => {
+      setError('Failed to disable service');
+    },
   });
 
   const deleteMutation = useMutation({
@@ -56,8 +61,11 @@ function ServicesListPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['services'] });
       setConfirmAction(null);
+      setToast('Service deleted');
     },
-    onError: (err: Error) => setError(err.message),
+    onError: () => {
+      setError('Failed to delete service');
+    },
   });
 
   const services = data?.items ?? [];
@@ -74,7 +82,7 @@ function ServicesListPage() {
       {error && <div className="form-error mb-4">{error}</div>}
 
       {isLoading ? (
-        <div className="empty-state"><p>Loading...</p></div>
+        <div className="empty-state"><p><span className="spinner" /> Loading...</p></div>
       ) : services.length === 0 ? (
         <div className="empty-state">
           <p>No backend services yet.</p>
@@ -126,7 +134,7 @@ function ServicesListPage() {
                       </button>
                       {svc.status === 'active' && (
                         <button
-                          className="btn-danger"
+                          className="btn-warning"
                           onClick={() => setConfirmAction({ type: 'disable', id: svc.id, name: svc.name })}
                         >
                           Disable
@@ -153,8 +161,8 @@ function ServicesListPage() {
         <ConfirmDialog
           title="Disable Backend Service"
           message={`Disable "${confirmAction.name}"? Any API keys for this service will stop working. The service can be re-enabled later.`}
-          confirmLabel="Disable"
-          danger
+          confirmLabel={disableMutation.isPending ? 'Disabling...' : 'Disable'}
+          pending={disableMutation.isPending}
           onConfirm={() => disableMutation.mutate(confirmAction.id)}
           onCancel={() => setConfirmAction(null)}
         />
@@ -164,12 +172,15 @@ function ServicesListPage() {
         <ConfirmDialog
           title="Delete Backend Service"
           message={`Permanently delete "${confirmAction.name}"? All API keys for this service will be deleted. This cannot be undone.`}
-          confirmLabel="Delete"
+          confirmLabel={deleteMutation.isPending ? 'Deleting...' : 'Delete'}
           danger
+          pending={deleteMutation.isPending}
           onConfirm={() => deleteMutation.mutate(confirmAction.id)}
           onCancel={() => setConfirmAction(null)}
         />
       )}
+
+      {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>
   );
 }

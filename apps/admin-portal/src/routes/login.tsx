@@ -33,8 +33,8 @@ function LoginPage() {
   return (
     <main className="login-shell">
       <form className="login-form" onSubmit={handleSubmit}>
+        <img src="/clavis-logo.svg" alt="Clavis" className="login-logo" />
         <p className="eyebrow">API Key Management</p>
-        <h1>Clavis</h1>
         {error && <div className="form-error">{error}</div>}
         <div className="form-group">
           <label htmlFor="email">Email</label>

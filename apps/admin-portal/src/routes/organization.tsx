@@ -73,7 +73,7 @@ function OrganizationPage() {
   const roles = ['platform_admin', 'org_admin', 'service_admin', 'developer', 'viewer'];
 
   if (isLoading) {
-    return <div className="empty-state"><p>Loading...</p></div>;
+    return <div className="empty-state"><p><span className="spinner" /> Loading...</p></div>;
   }
 
   if (!org) {

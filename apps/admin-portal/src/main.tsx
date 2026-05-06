@@ -12,6 +12,7 @@ import { servicesCreateRoute } from './routes/services.create';
 import { servicesDetailRoute } from './routes/services.$serviceId';
 import { servicesKeysRoute } from './routes/services.$serviceId.keys';
 import { organizationRoute } from './routes/organization';
+import { accountRoute } from './routes/account';
 import { auditLogsRoute } from './routes/audit-logs';
 import './styles.css';
 
@@ -23,6 +24,7 @@ const routeTree = rootRoute.addChildren([
     servicesCreateRoute,
     servicesDetailRoute,
     servicesKeysRoute,
+    accountRoute,
     organizationRoute,
     auditLogsRoute,
   ]),

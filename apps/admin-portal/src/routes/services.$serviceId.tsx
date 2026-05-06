@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { authRoute } from './_auth';
 import { api } from '../api/client';
 import { ConfirmDialog } from '../components/confirm-dialog';
+import { Toast } from '../components/toast';
 
 interface ServiceDetail {
   id: string;
@@ -34,25 +35,31 @@ function ServiceDetailPage() {
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const { data: service, isLoading } = useQuery({
     queryKey: ['service', serviceId],
     queryFn: () => api.get<ServiceDetail>(`/v1/services/${serviceId}`),
   });
 
-  const [form, setForm] = useState({ name: '', base_url: '' });
+  const [form, setForm] = useState({ name: '', slug: '', base_url: '' });
 
-  const updateMutation = useMutation({
-    mutationFn: (input: { name?: string; base_url?: string }) =>
-      api.patch<ServiceDetail>(`/v1/services/${serviceId}`, input),
-    onSuccess: () => {
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await api.patch(`/v1/services/${serviceId}`, { name: form.name, slug: form.slug, base_url: form.base_url });
       queryClient.invalidateQueries({ queryKey: ['service', serviceId] });
       queryClient.invalidateQueries({ queryKey: ['services'] });
       setEditing(false);
       setError(null);
-    },
-    onError: (err: Error) => setError(err.message),
-  });
+      setToast('Changes saved');
+    } catch {
+      setError('Failed to save changes');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const disableMutation = useMutation({
     mutationFn: () => api.delete(`/v1/services/${serviceId}`),
@@ -60,9 +67,9 @@ function ServiceDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['services'] });
       queryClient.invalidateQueries({ queryKey: ['service', serviceId] });
       setConfirmAction(null);
-      setError(null);
+      setToast('Service disabled');
     },
-    onError: (err: Error) => setError(err.message),
+    onError: () => setError('Failed to disable service'),
   });
 
   const deleteMutation = useMutation({
@@ -71,27 +78,29 @@ function ServiceDetailPage() {
       queryClient.invalidateQueries({ queryKey: ['services'] });
       navigate({ to: '/services' });
     },
-    onError: (err: Error) => setError(err.message),
+    onError: () => setError('Failed to delete service'),
   });
 
   const startEdit = () => {
     if (service) {
-      setForm({ name: service.name, base_url: service.base_url });
+      setForm({ name: service.name, slug: service.slug, base_url: service.base_url });
       setEditing(true);
       setError(null);
     }
   };
 
-  const handleSave = () => {
-    updateMutation.mutate(form);
-  };
-
   if (isLoading || !service) {
-    return <div className="empty-state"><p>Loading...</p></div>;
+    return <div className="empty-state"><p><span className="spinner" /> Loading...</p></div>;
   }
 
   return (
     <div>
+      <div className="sub-nav">
+        <Link to="/services">Services</Link>
+        <span style={{ margin: '0 4px', color: 'var(--text-muted)' }}>/</span>
+        {service.name}
+      </div>
+
       <div className="page-header">
         <h1>{service.name}</h1>
         <div className="flex-row">
@@ -107,7 +116,7 @@ function ServiceDetailPage() {
           )}
           {service.status === 'active' && (
             <button
-              className="btn-danger"
+              className="btn-warning"
               onClick={() => setConfirmAction({ type: 'disable' })}
             >
               Disable
@@ -124,27 +133,31 @@ function ServiceDetailPage() {
       {error && <div className="form-error mb-4">{error}</div>}
 
       <div className="card mb-4">
-        <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: '12px 16px', fontSize: 14 }}>
+        <div className="detail-grid">
           <strong>Status</strong>
           <span className={`badge badge-${service.status === 'active' ? 'active' : 'disabled'}`}>
             {service.status}
           </span>
-
-          <strong>Slug</strong>
-          {editing ? <span>{service.slug}</span> : <code>{service.slug}</code>}
-
-          <strong>Base URL</strong>
-          {editing ? (
-            <input value={form.base_url} onChange={(e) => setForm({ ...form, base_url: e.target.value })} />
-          ) : (
-            <span className="text-mono">{service.base_url}</span>
-          )}
 
           <strong>Name</strong>
           {editing ? (
             <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           ) : (
             <span>{service.name}</span>
+          )}
+
+          <strong>Slug</strong>
+          {editing ? (
+            <input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
+          ) : (
+            <code>{service.slug}</code>
+          )}
+
+          <strong>Base URL</strong>
+          {editing ? (
+            <input value={form.base_url} onChange={(e) => setForm({ ...form, base_url: e.target.value })} />
+          ) : (
+            <span className="text-mono">{service.base_url}</span>
           )}
 
           <strong>Allowed Routes</strong>
@@ -169,8 +182,8 @@ function ServiceDetailPage() {
 
         {editing && (
           <div className="flex-row" style={{ marginTop: 16 }}>
-            <button className="btn-primary" onClick={handleSave} disabled={updateMutation.isPending}>
-              {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
+            <button className="btn-primary" onClick={handleSave} disabled={saving}>
+              {saving ? <><span className="spinner" /> Saving...</> : 'Save Changes'}
             </button>
             <button className="btn-secondary" onClick={() => setEditing(false)}>Cancel</button>
           </div>
@@ -181,8 +194,8 @@ function ServiceDetailPage() {
         <ConfirmDialog
           title="Disable Backend Service"
           message={`Disable "${service.name}"? Any API keys for this service will stop working. The service can be re-enabled later.`}
-          confirmLabel="Disable"
-          danger
+          confirmLabel={disableMutation.isPending ? 'Disabling...' : 'Disable'}
+          pending={disableMutation.isPending}
           onConfirm={() => disableMutation.mutate()}
           onCancel={() => setConfirmAction(null)}
         />
@@ -192,12 +205,15 @@ function ServiceDetailPage() {
         <ConfirmDialog
           title="Delete Backend Service"
           message={`Permanently delete "${service.name}"? All API keys for this service will be deleted. This cannot be undone.`}
-          confirmLabel="Delete"
+          confirmLabel={deleteMutation.isPending ? 'Deleting...' : 'Delete'}
           danger
+          pending={deleteMutation.isPending}
           onConfirm={() => deleteMutation.mutate()}
           onCancel={() => setConfirmAction(null)}
         />
       )}
+
+      {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>
   );
 }

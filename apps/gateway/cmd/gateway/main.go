@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
 
 	"platform/gateway/internal/config"
+	"platform/gateway/internal/logging"
 	"platform/gateway/internal/middleware"
 	"platform/gateway/internal/proxy"
 	"platform/gateway/internal/validation"
@@ -27,6 +29,7 @@ func main() {
 	defer redisClient.Close()
 
 	dynamicProxy := proxy.NewDynamicProxy()
+	keyProxy := proxy.NewKeyProxy()
 
 	router := chi.NewRouter()
 
@@ -37,16 +40,30 @@ func main() {
 		})
 	})
 
+	var logSender *logging.Client
+	if cfg.LoggingEnabled {
+		endpoint := strings.TrimRight(cfg.ControlPlaneURL, "/") + "/internal/v1/request-logs/ingest"
+		logSender = logging.NewClient(endpoint, cfg.LogChannelSize, cfg.LogBatchSize, cfg.LogFlushInterval)
+		defer logSender.Shutdown()
+	}
+
+	logProxyMiddleware := func(next http.Handler) http.Handler { return next }
+	keyProxyMiddleware := func(next http.Handler) http.Handler { return next }
+	if logSender != nil {
+		logProxyMiddleware = middleware.Logging(logSender)
+		keyProxyMiddleware = middleware.Logging(logSender)
+	}
+
 	router.With(
 		middleware.Auth(validationClient),
 		middleware.RateLimit(redisClient),
+		logProxyMiddleware,
 	).Handle("/proxy/*", dynamicProxy)
 
-	// Key-based routing: API key in ?key= query parameter, original path forwarded intact.
-	keyProxy := proxy.NewKeyProxy()
 	router.With(
 		middleware.QueryAuth(validationClient),
 		middleware.RateLimit(redisClient),
+		keyProxyMiddleware,
 	).Handle("/*", keyProxy)
 
 	log.Printf("gateway listening on :%s", cfg.Port)

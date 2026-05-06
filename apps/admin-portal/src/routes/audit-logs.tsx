@@ -42,7 +42,7 @@ function AuditLogsPage() {
       </div>
 
       {isLoading ? (
-        <div className="empty-state"><p>Loading...</p></div>
+        <div className="empty-state"><p><span className="spinner" /> Loading...</p></div>
       ) : logs.length === 0 ? (
         <div className="empty-state"><p>No audit log entries yet.</p></div>
       ) : (

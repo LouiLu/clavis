@@ -102,4 +102,36 @@ curl --fail --silent --show-error http://localhost:4000/v1/audit-logs \
   -H "authorization: Bearer ${TOKEN}" |
   grep '"action":"api_key.created"'
 
+echo "Ingesting test request logs..."
+curl --fail --silent --show-error -X POST http://localhost:4000/internal/v1/request-logs/ingest \
+  -H 'content-type: application/json' \
+  -d "{
+    \"entries\": [
+      {
+        \"api_key_id\": \"$(echo "${API_KEY_JSON}" | json_field 'json => json.id')\",
+        \"organization_id\": \"$(echo "${SERVICES_JSON}" | json_field "json => json.items.find((item) => item.slug === '${SEED_SERVICE_SLUG:-sample}').organization_id")\",
+        \"service_id\": \"${SERVICE_ID}\",
+        \"service_slug\": \"${SEED_SERVICE_SLUG:-sample}\",
+        \"method\": \"GET\",
+        \"path\": \"/health\",
+        \"status_code\": 200,
+        \"latency_ms\": 12,
+        \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+      }
+    ]
+  }"
+
+echo "Checking metrics overview..."
+curl --fail --silent --show-error http://localhost:4000/v1/metrics/overview \
+  -H "authorization: Bearer ${TOKEN}" |
+  grep '"total_requests"'
+
+echo "Checking service usage metrics..."
+curl --fail --silent --show-error "http://localhost:4000/v1/metrics/services/${SERVICE_ID}/usage?days=1" \
+  -H "authorization: Bearer ${TOKEN}" |
+  grep '"requests"'
+
+echo "Checking Admin Portal /metrics route..."
+curl --fail --silent --show-error http://localhost:3000/metrics >/dev/null
+
 echo "Smoke checks passed."

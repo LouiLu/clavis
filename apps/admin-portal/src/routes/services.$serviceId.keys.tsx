@@ -5,6 +5,7 @@ import { authRoute } from './_auth';
 import { api } from '../api/client';
 import { ApiKeyReveal } from '../components/api-key-reveal';
 import { ConfirmDialog } from '../components/confirm-dialog';
+import { Toast } from '../components/toast';
 
 interface KeyItem {
   id: string;
@@ -38,7 +39,7 @@ interface ServiceDetail {
   slug: string;
 }
 
-type ConfirmAction = { type: 'revoke' | 'delete'; keyId: string; keyName: string } | null;
+type ConfirmAction = { type: 'revoke' | 'delete' | 'rotate'; keyId: string; keyName: string } | null;
 
 function ApiKeysPage() {
   const { serviceId } = useParams({ from: '/_auth/services/$serviceId/keys' });
@@ -46,6 +47,7 @@ function ApiKeysPage() {
   const [error, setError] = useState<string | null>(null);
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newKeyName, setNewKeyName] = useState('');
 
@@ -78,13 +80,18 @@ function ApiKeysPage() {
     onSuccess: (result) => {
       setRevealedKey(result.api_key);
       queryClient.invalidateQueries({ queryKey: ['api-keys', serviceId] });
+      setConfirmAction(null);
     },
-    onError: (err: Error) => setError(err.message),
+    onError: () => setError('Failed to rotate key'),
   });
 
   const revokeMutation = useMutation({
     mutationFn: (keyId: string) => api.post(`/v1/api-keys/${keyId}/revoke`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['api-keys', serviceId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['api-keys', serviceId] });
+      setToast('Key revoked');
+    },
+    onError: () => setError('Failed to revoke key'),
   });
 
   const deleteMutation = useMutation({
@@ -92,7 +99,9 @@ function ApiKeysPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['api-keys', serviceId] });
       setConfirmAction(null);
+      setToast('Key deleted');
     },
+    onError: () => setError('Failed to delete key'),
   });
 
   const handleCreate = (e: React.FormEvent) => {
@@ -156,7 +165,7 @@ function ApiKeysPage() {
       {error && <div className="form-error mb-4">{error}</div>}
 
       {isLoading ? (
-        <div className="empty-state"><p>Loading...</p></div>
+        <div className="empty-state"><p><span className="spinner" /> Loading...</p></div>
       ) : keys.length === 0 ? (
         <div className="empty-state">
           <p>No API keys for this service yet.</p>
@@ -195,8 +204,7 @@ function ApiKeysPage() {
                         <>
                           <button
                             className="btn-secondary"
-                            onClick={() => rotateMutation.mutate(key.id)}
-                            disabled={rotateMutation.isPending}
+                            onClick={() => setConfirmAction({ type: 'rotate', keyId: key.id, keyName: key.name })}
                           >
                             Rotate
                           </button>
@@ -223,27 +231,47 @@ function ApiKeysPage() {
         </div>
       )}
 
-      {confirmAction && (
-        <ConfirmDialog
-          title={confirmAction.type === 'revoke' ? 'Revoke API Key' : 'Delete API Key'}
-          message={
-            confirmAction.type === 'revoke'
-              ? `Revoke "${confirmAction.keyName}"? Requests using this key will be rejected.`
-              : `Permanently delete "${confirmAction.keyName}"? This cannot be undone.`
-          }
-          confirmLabel={confirmAction.type === 'revoke' ? 'Revoke' : 'Delete'}
-          danger
-          onConfirm={() => {
-            if (confirmAction.type === 'revoke') {
-              revokeMutation.mutate(confirmAction.keyId);
-            } else {
-              deleteMutation.mutate(confirmAction.keyId);
-            }
-            setConfirmAction(null);
-          }}
-          onCancel={() => setConfirmAction(null)}
-        />
-      )}
+      {confirmAction && (() => {
+        const { type, keyId, keyName } = confirmAction;
+        if (type === 'rotate') {
+          return (
+            <ConfirmDialog
+              title="Rotate API Key"
+              message={`Rotate "${keyName}"? The current key will be invalidated and a new key will be issued.`}
+              confirmLabel={rotateMutation.isPending ? 'Rotating...' : 'Rotate'}
+              pending={rotateMutation.isPending}
+              onConfirm={() => rotateMutation.mutate(keyId)}
+              onCancel={() => setConfirmAction(null)}
+            />
+          );
+        }
+        if (type === 'revoke') {
+          return (
+            <ConfirmDialog
+              title="Revoke API Key"
+              message={`Revoke "${keyName}"? Requests using this key will be rejected.`}
+              confirmLabel={revokeMutation.isPending ? 'Revoking...' : 'Revoke'}
+              danger
+              pending={revokeMutation.isPending}
+              onConfirm={() => revokeMutation.mutate(keyId)}
+              onCancel={() => setConfirmAction(null)}
+            />
+          );
+        }
+        return (
+          <ConfirmDialog
+            title="Delete API Key"
+            message={`Permanently delete "${keyName}"? This cannot be undone.`}
+            confirmLabel={deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+            danger
+            pending={deleteMutation.isPending}
+            onConfirm={() => deleteMutation.mutate(keyId)}
+            onCancel={() => setConfirmAction(null)}
+          />
+        );
+      })()}
+
+      {toast && <Toast message={toast} onDone={() => setToast(null)} />}
     </div>
   );
 }

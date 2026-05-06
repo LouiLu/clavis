@@ -204,3 +204,23 @@ model AuditLog {
   @@index([targetType, targetId])
   @@map("audit_logs")
 }
+
+model RequestLog {
+  id             String   @id @default(uuid())
+  apiKeyId       String   @map("api_key_id")
+  organizationId String   @map("organization_id")
+  serviceId      String   @map("service_id")
+  serviceSlug    String   @map("service_slug")
+  method         String
+  path           String
+  statusCode     Int      @map("status_code")
+  latencyMs      Int      @map("latency_ms")
+  timestamp      DateTime
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([organizationId])
+  @@index([serviceId, timestamp])
+  @@index([apiKeyId, timestamp])
+  @@index([timestamp])
+  @@map("request_logs")
+}
