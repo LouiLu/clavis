@@ -1430,6 +1430,15 @@ hr {
   font-size: 13px;
 }
 
+.docs-table-wrap {
+  margin: 12px 0 18px;
+}
+
+.docs-table-divider td {
+  padding: 4px 0;
+  border-bottom: none;
+}
+
 .docs-callout {
   background: #f0fdf6;
   border: 1px solid #bbf7d0;
