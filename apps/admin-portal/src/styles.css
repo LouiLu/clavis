@@ -1328,8 +1328,15 @@ hr {
 
 /* ── Documentation ───────────────────────────── */
 
+.docs-layout {
+  display: grid;
+  grid-template-columns: 1fr 200px;
+  gap: 28px;
+  align-items: start;
+}
+
 .docs {
-  max-width: 860px;
+  min-width: 0;
 }
 
 .docs-section {
@@ -1338,6 +1345,7 @@ hr {
   border-radius: var(--radius-lg);
   padding: 24px 28px;
   margin-bottom: 20px;
+  scroll-margin-top: 24px;
 }
 
 .docs-section h2 {
@@ -1345,6 +1353,61 @@ hr {
   margin: 0 0 12px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--border-light);
+}
+
+/* ── Docs sidebar nav ────────────────────────── */
+
+.docs-sidebar {
+  position: sticky;
+  top: 24px;
+}
+
+.docs-nav {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+
+.docs-nav-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0 0 10px;
+}
+
+.docs-nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.docs-nav-list li {
+  margin-bottom: 2px;
+}
+
+.docs-nav-link {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: 4px 8px;
+  border-radius: 4px;
+  line-height: 1.4;
+  transition: color 0.12s, background 0.12s;
+}
+
+.docs-nav-link:hover {
+  color: var(--text);
+  background: var(--border-light);
+}
+
+.docs-nav-link-active {
+  color: var(--accent);
+  font-weight: 600;
+  background: #f0fdf6;
 }
 
 .docs-section h3 {
@@ -1456,6 +1519,16 @@ hr {
 .docs-callout p {
   margin: 6px 0 0;
   font-size: 13px;
+}
+
+@media (max-width: 900px) {
+  .docs-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .docs-sidebar {
+    display: none;
+  }
 }
 
 @media (max-width: 600px) {
