@@ -84,8 +84,9 @@ cd clavis
 # Create your .env from the template
 cp .env.example .env
 
-# Edit .env — set your own passwords (all values marked CHANGE_ME)
-# vim .env
+# Edit .env — replace CHANGE_ME with your own values
+# Required: SEED_ADMIN_PASSWORD, POSTGRES_PASSWORD, CONTROL_PLANE_SESSION_SECRET
+vim .env
 
 docker compose up -d --build
 ./scripts/smoke-compose.sh
