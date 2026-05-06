@@ -1329,14 +1329,7 @@ hr {
 /* ── Documentation ───────────────────────────── */
 
 .docs-layout {
-  display: grid;
-  grid-template-columns: 1fr 200px;
-  gap: 28px;
-  align-items: start;
-}
-
-.docs {
-  min-width: 0;
+  padding-right: 260px;
 }
 
 .docs-section {
@@ -1358,8 +1351,19 @@ hr {
 /* ── Docs sidebar nav ────────────────────────── */
 
 .docs-sidebar {
-  position: sticky;
-  top: 24px;
+  position: fixed;
+  top: 92px;
+  right: 40px;
+  width: 200px;
+  max-height: calc(100vh - 130px);
+  overflow-y: auto;
+  z-index: 10;
+}
+
+@media (max-width: 900px) {
+  .docs-sidebar {
+    display: none;
+  }
 }
 
 .docs-nav {
@@ -1519,16 +1523,6 @@ hr {
 .docs-callout p {
   margin: 6px 0 0;
   font-size: 13px;
-}
-
-@media (max-width: 900px) {
-  .docs-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .docs-sidebar {
-    display: none;
-  }
 }
 
 @media (max-width: 600px) {
