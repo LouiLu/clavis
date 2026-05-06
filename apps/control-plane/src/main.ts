@@ -14,6 +14,9 @@ async function bootstrap(): Promise<void> {
   await app.register(cors, {
     origin: true,
     credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    preflightContinue: false,
   });
 
   await app.listen(config.port, '0.0.0.0');
