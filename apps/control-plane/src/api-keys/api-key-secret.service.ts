@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import * as argon2 from 'argon2';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
 @Injectable()
 export class ApiKeySecretService {
@@ -11,11 +11,24 @@ export class ApiKeySecretService {
     return { prefix, plaintext: `${prefix}.${secret}` };
   }
 
-  hash(plaintext: string): Promise<string> {
-    return argon2.hash(plaintext);
+  async hash(plaintext: string): Promise<string> {
+    const salt = randomBytes(16).toString('hex');
+    const hash = createHash('sha256').update(salt).update(plaintext).digest('hex');
+    return `$sha256$${salt}$${hash}`;
   }
 
-  verify(hash: string, plaintext: string): Promise<boolean> {
-    return argon2.verify(hash, plaintext);
+  async verify(stored: string, plaintext: string): Promise<boolean> {
+    if (stored.startsWith('$argon2')) {
+      return argon2.verify(stored, plaintext);
+    }
+
+    // Format: $sha256$<salt>$<hash>
+    const parts = stored.split('$');
+    if (parts.length !== 4 || parts[1] !== 'sha256') {
+      return false;
+    }
+    const [, , salt, expected] = parts;
+    const actual = createHash('sha256').update(salt).update(plaintext).digest('hex');
+    return timingSafeEqual(Buffer.from(actual), Buffer.from(expected));
   }
 }
