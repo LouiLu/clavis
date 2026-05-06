@@ -42,6 +42,10 @@ interface ServiceDetail {
 
 type ConfirmAction = { type: 'revoke' | 'delete' | 'rotate'; keyId: string; keyName: string } | null;
 
+function popoverX(clickX: number, width: number): number {
+  return Math.min(clickX, window.innerWidth - width - 16);
+}
+
 function ApiKeysPage() {
   const { serviceId } = useParams({ from: '/_auth/services/$serviceId/keys' });
   const queryClient = useQueryClient();
@@ -259,7 +263,7 @@ function ApiKeysPage() {
                         setEditingExpiry({
                           keyId: key.id,
                           expiresAt: key.expires_at ? key.expires_at.slice(0, 10) : '',
-                          x: rect.left,
+                          x: popoverX(rect.left, 260),
                           y: rect.bottom + 4,
                         });
                       }}
@@ -325,7 +329,7 @@ function ApiKeysPage() {
                               setRateLimitPopover(
                                 rateLimitPopover?.keyId === key.id
                                   ? null
-                                  : { keyId: key.id, x: rect.left, y: rect.bottom + 4 },
+                                  : { keyId: key.id, x: popoverX(rect.left, 376), y: rect.bottom + 4 },
                               );
                             }}
                           >
