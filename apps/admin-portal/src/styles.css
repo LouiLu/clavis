@@ -775,6 +775,30 @@ a:hover {
   margin: 0 0 8px;
 }
 
+.rate-limit-fields-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rate-limit-fields-vertical .form-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.rate-limit-fields-vertical .form-group label {
+  width: 140px;
+  flex-shrink: 0;
+  font-size: 12px;
+  margin-bottom: 0;
+}
+
+.rate-limit-fields-vertical .form-group input {
+  flex: 1;
+  min-width: 0;
+}
+
 /* ── Dialog ────────────────────────────────── */
 
 .dialog-overlay {

@@ -354,6 +354,7 @@ function ApiKeysPage() {
           <div className="rate-limit-popover" style={{ left: rateLimitPopover.x, top: rateLimitPopover.y }}>
             <p className="rate-limit-popover-hint">Overrides the service-level default when set.</p>
             <RateLimitForm
+              compact
               initial={keyRateLimit ?? null}
               onSave={async (values) => {
                 await upsertKeyRateLimitMutation.mutateAsync({ keyId: rateLimitPopover.keyId, values });

@@ -11,6 +11,7 @@ interface RateLimitFormProps {
   onSave: (values: RateLimitValues) => Promise<void>;
   onCancel: () => void;
   onRemove?: () => Promise<void>;
+  compact?: boolean;
 }
 
 const DEFAULTS: RateLimitValues = {
@@ -19,7 +20,7 @@ const DEFAULTS: RateLimitValues = {
   burst_size: 100,
 };
 
-export function RateLimitForm({ initial, onSave, onCancel, onRemove }: RateLimitFormProps) {
+export function RateLimitForm({ initial, onSave, onCancel, onRemove, compact }: RateLimitFormProps) {
   const [values, setValues] = useState<RateLimitValues>(initial ?? DEFAULTS);
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -50,7 +51,7 @@ export function RateLimitForm({ initial, onSave, onCancel, onRemove }: RateLimit
 
   return (
     <form onSubmit={handleSave}>
-      <div className="form-row" style={{ marginTop: 12 }}>
+      <div className={compact ? 'rate-limit-fields-vertical' : 'form-row'} style={{ marginTop: 12 }}>
         <div className="form-group">
           <label htmlFor="rl-requests">Requests per interval</label>
           <input
