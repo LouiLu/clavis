@@ -42,6 +42,13 @@ func main() {
 		middleware.RateLimit(redisClient),
 	).Handle("/proxy/*", dynamicProxy)
 
+	// Key-based routing: API key in ?key= query parameter, original path forwarded intact.
+	keyProxy := proxy.NewKeyProxy()
+	router.With(
+		middleware.QueryAuth(validationClient),
+		middleware.RateLimit(redisClient),
+	).Handle("/*", keyProxy)
+
 	log.Printf("gateway listening on :%s", cfg.Port)
 	log.Fatal(http.ListenAndServe(":"+cfg.Port, router))
 }

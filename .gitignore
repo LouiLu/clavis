@@ -11,3 +11,4 @@ apps/**/.turbo
 apps/**/node_modules
 apps/**/dist
 apps/**/.vite
+.gitnexus

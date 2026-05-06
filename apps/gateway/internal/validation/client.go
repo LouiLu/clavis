@@ -65,6 +65,37 @@ func NewClient(controlPlaneURL string) *Client {
 	}
 }
 
+type LookupInput struct {
+	APIKey string `json:"api_key"`
+}
+
+func (c *Client) Lookup(input LookupInput) (*ValidationResult, error) {
+	body, err := json.Marshal(input)
+	if err != nil {
+		return nil, fmt.Errorf("marshal lookup request: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/internal/v1/api-keys/lookup", c.baseURL)
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("create lookup request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("call control plane lookup: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var result ValidationResult
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode lookup response: %w", err)
+	}
+
+	return &result, nil
+}
+
 func (c *Client) Validate(input Input) (*ValidationResult, error) {
 	body, err := json.Marshal(input)
 	if err != nil {

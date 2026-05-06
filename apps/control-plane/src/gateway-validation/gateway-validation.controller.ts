@@ -17,4 +17,12 @@ export class GatewayValidationController {
       path: body.path,
     });
   }
+
+  @Post('lookup')
+  lookup(@Body() body: { api_key?: string }) {
+    if (!body.api_key) {
+      throw new BadRequestException('api_key is required');
+    }
+    return this.validation.lookup(body.api_key);
+  }
 }

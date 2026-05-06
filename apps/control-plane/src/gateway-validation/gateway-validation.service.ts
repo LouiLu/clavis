@@ -56,4 +56,52 @@ export class GatewayValidationService {
         : null,
     };
   }
+
+  async lookup(apiKey: string) {
+    const prefix = apiKey.split('.')[0];
+    const record = await this.prisma.apiKey.findUnique({
+      where: { keyPrefix: prefix },
+      include: {
+        organization: true,
+        backendService: { include: { rateLimitPolicies: true } },
+        rateLimitPolicies: true,
+      },
+    });
+    if (!record || record.status !== 'active') {
+      return { valid: false, reason: 'unknown_or_inactive_key' };
+    }
+    if (record.expiresAt && record.expiresAt <= new Date()) {
+      return { valid: false, reason: 'expired_key' };
+    }
+    if (record.backendService.status !== 'active') {
+      return { valid: false, reason: 'service_disabled' };
+    }
+    const ok = await this.secrets.verify(record.keyHash, apiKey);
+    if (!ok) {
+      return { valid: false, reason: 'invalid_key' };
+    }
+
+    await this.prisma.apiKey.update({ where: { id: record.id }, data: { lastUsedAt: new Date() } });
+    const keyLimit = record.rateLimitPolicies[0];
+    const serviceLimit = record.backendService.rateLimitPolicies[0];
+    const effectiveLimit = keyLimit ?? serviceLimit;
+    return {
+      valid: true,
+      organization: { id: record.organization.id },
+      api_key: { id: record.id, prefix: record.keyPrefix },
+      backend_service: {
+        id: record.backendService.id,
+        slug: record.backendService.slug,
+        base_url: record.backendService.baseUrl,
+        allowed_routes: record.backendService.allowedRoutes,
+      },
+      rate_limit: effectiveLimit
+        ? {
+            requests_per_interval: effectiveLimit.requestsPerInterval,
+            interval_seconds: effectiveLimit.intervalSeconds,
+            burst_size: effectiveLimit.burstSize,
+          }
+        : null,
+    };
+  }
 }
