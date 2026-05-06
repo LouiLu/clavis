@@ -5,7 +5,10 @@ const prisma = new PrismaClient();
 
 async function main(): Promise<void> {
   const adminEmail = process.env.SEED_ADMIN_EMAIL ?? 'admin@example.local';
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? 'ChangeMe123!';
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+  if (!adminPassword) {
+    throw new Error('SEED_ADMIN_PASSWORD must be set in .env');
+  }
   const orgName = process.env.SEED_ORG_NAME ?? 'Internal Platform Team';
   const serviceName = process.env.SEED_SERVICE_NAME ?? 'Sample Backend';
   const serviceSlug = process.env.SEED_SERVICE_SLUG ?? 'sample';

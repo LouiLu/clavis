@@ -42,7 +42,7 @@ func TestAuthMiddleware(t *testing.T) {
 		)
 
 		req := httptest.NewRequest(http.MethodGet, "/proxy/sample/health", nil)
-		req.Header.Set("Authorization", "Bearer pk_live_test.secret")
+		req.Header.Set("Authorization", "Bearer pk_test_xxxx.secret")
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
 
@@ -59,7 +59,7 @@ func TestAuthMiddleware(t *testing.T) {
 		)
 
 		req := httptest.NewRequest(http.MethodGet, "/proxy/sample/health", nil)
-		req.Header.Set("X-API-Key", "pk_live_test.secret")
+		req.Header.Set("X-API-Key", "pk_test_xxxx.secret")
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
 
@@ -93,7 +93,7 @@ func TestAuthMiddleware(t *testing.T) {
 		}))
 
 		req := httptest.NewRequest(http.MethodGet, "/proxy/sample/health", nil)
-		req.Header.Set("Authorization", "Bearer pk_live_test.secret")
+		req.Header.Set("Authorization", "Bearer pk_test_xxxx.secret")
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
 
@@ -114,7 +114,7 @@ func TestAuthMiddleware(t *testing.T) {
 		)
 
 		req := httptest.NewRequest(http.MethodGet, "/proxy/sample/v1/jobs", nil)
-		req.Header.Set("Authorization", "Bearer pk_live_test.secret")
+		req.Header.Set("Authorization", "Bearer pk_test_xxxx.secret")
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
 
@@ -139,7 +139,7 @@ func TestAuthMiddleware(t *testing.T) {
 		)
 
 		req := httptest.NewRequest(http.MethodGet, "/proxy/sample/health", nil)
-		req.Header.Set("Authorization", "Bearer pk_live_test.secret")
+		req.Header.Set("Authorization", "Bearer pk_test_xxxx.secret")
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
 
@@ -156,7 +156,7 @@ func TestAuthMiddleware(t *testing.T) {
 		}))
 
 		req := httptest.NewRequest(http.MethodGet, "/proxy/sample/health", nil)
-		req.Header.Set("Authorization", "Bearer pk_live_test.secret")
+		req.Header.Set("Authorization", "Bearer pk_test_xxxx.secret")
 		rec := httptest.NewRecorder()
 		handler.ServeHTTP(rec, req)
 
@@ -171,7 +171,7 @@ func validResult() *validation.ValidationResult {
 		Valid: true,
 		APIKey: &validation.APIKeyRef{
 			ID:     "key_1",
-			Prefix: "pk_live_test",
+			Prefix: "pk_test_xxxx",
 		},
 		BackendService: &validation.BackendServiceDetail{
 			ID:      "svc_1",
