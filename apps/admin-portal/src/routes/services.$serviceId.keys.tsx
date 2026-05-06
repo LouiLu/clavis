@@ -53,7 +53,7 @@ function ApiKeysPage() {
   const [newKeyName, setNewKeyName] = useState('');
   const [newKeyExpiry, setNewKeyExpiry] = useState('');
   const [editingExpiry, setEditingExpiry] = useState<{ keyId: string; expiresAt: string; x: number; y: number } | null>(null);
-  const [rateLimitKeyId, setRateLimitKeyId] = useState<string | null>(null);
+  const [rateLimitPopover, setRateLimitPopover] = useState<{ keyId: string; x: number; y: number } | null>(null);
 
   const { data: service } = useQuery({
     queryKey: ['service', serviceId],
@@ -124,16 +124,16 @@ function ApiKeysPage() {
   });
 
   const { data: keyRateLimit } = useQuery({
-    queryKey: ['key-rate-limit', rateLimitKeyId],
-    queryFn: () => api.get<RateLimitValues | null>(`/v1/api-keys/${rateLimitKeyId}/rate-limit`),
-    enabled: !!rateLimitKeyId,
+    queryKey: ['key-rate-limit', rateLimitPopover?.keyId ?? null],
+    queryFn: () => api.get<RateLimitValues | null>(`/v1/api-keys/${rateLimitPopover?.keyId ?? null}/rate-limit`),
+    enabled: !!rateLimitPopover?.keyId,
   });
 
   const upsertKeyRateLimitMutation = useMutation({
     mutationFn: ({ keyId, values }: { keyId: string; values: RateLimitValues }) =>
       api.put(`/v1/api-keys/${keyId}/rate-limit`, values),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['key-rate-limit', rateLimitKeyId] });
+      queryClient.invalidateQueries({ queryKey: ['key-rate-limit', rateLimitPopover?.keyId ?? null] });
       setToast('Key rate limit updated');
     },
     onError: (err: Error) => setError(err.message),
@@ -142,8 +142,8 @@ function ApiKeysPage() {
   const deleteKeyRateLimitMutation = useMutation({
     mutationFn: (keyId: string) => api.delete(`/v1/api-keys/${keyId}/rate-limit`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['key-rate-limit', rateLimitKeyId] });
-      setRateLimitKeyId(null);
+      queryClient.invalidateQueries({ queryKey: ['key-rate-limit', rateLimitPopover?.keyId ?? null] });
+      setRateLimitPopover(null);
       setToast('Key rate limit removed');
     },
     onError: (err: Error) => setError(err.message),
@@ -320,7 +320,14 @@ function ApiKeysPage() {
                           </button>
                           <button
                             className="btn-secondary"
-                            onClick={() => setRateLimitKeyId(rateLimitKeyId === key.id ? null : key.id)}
+                            onClick={(e) => {
+                              const rect = (e.target as HTMLElement).getBoundingClientRect();
+                              setRateLimitPopover(
+                                rateLimitPopover?.keyId === key.id
+                                  ? null
+                                  : { keyId: key.id, x: rect.left, y: rect.bottom + 4 },
+                              );
+                            }}
                           >
                             Rate
                           </button>
@@ -341,27 +348,27 @@ function ApiKeysPage() {
         </div>
       )}
 
-      {rateLimitKeyId && (
-        <div className="card mb-4" style={{ marginTop: 16 }}>
-          <h2>Rate Limit for Key</h2>
-          <p className="text-muted" style={{ margin: 0 }}>
-            Overrides the service-level default when set.
-          </p>
-          <RateLimitForm
-            initial={keyRateLimit ?? null}
-            onSave={async (values) => {
-              await upsertKeyRateLimitMutation.mutateAsync({ keyId: rateLimitKeyId, values });
-            }}
-            onCancel={() => setRateLimitKeyId(null)}
-            onRemove={
-              keyRateLimit
-                ? async () => {
-                    await deleteKeyRateLimitMutation.mutateAsync(rateLimitKeyId);
-                  }
-                : undefined
-            }
-          />
-        </div>
+      {rateLimitPopover && (
+        <>
+          <div className="expiry-popover-backdrop" onClick={() => setRateLimitPopover(null)} />
+          <div className="rate-limit-popover" style={{ left: rateLimitPopover.x, top: rateLimitPopover.y }}>
+            <p className="rate-limit-popover-hint">Overrides the service-level default when set.</p>
+            <RateLimitForm
+              initial={keyRateLimit ?? null}
+              onSave={async (values) => {
+                await upsertKeyRateLimitMutation.mutateAsync({ keyId: rateLimitPopover.keyId, values });
+              }}
+              onCancel={() => setRateLimitPopover(null)}
+              onRemove={
+                keyRateLimit
+                  ? async () => {
+                      await deleteKeyRateLimitMutation.mutateAsync(rateLimitPopover.keyId);
+                    }
+                  : undefined
+              }
+            />
+          </div>
+        </>
       )}
 
       {confirmAction && (() => {
