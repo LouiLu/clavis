@@ -56,6 +56,15 @@ export class BackendServicesController {
     return this.serializeService(await this.services.disable(user.id, serviceId));
   }
 
+  @Post(':serviceId/delete')
+  async deletePermanently(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('serviceId') serviceId: string,
+    @Body() _body?: Record<string, never>,
+  ) {
+    return this.services.deletePermanently(user.id, serviceId);
+  }
+
   private serializeService(service: BackendService & { rateLimitPolicies: RateLimitPolicy[] }) {
     const defaultRateLimit = service.rateLimitPolicies.find((policy) => policy.targetType === 'backend_service');
     return {

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { AuditLogService } from '../audit/audit-log.service';
 import { PrismaService } from '../prisma.service';
@@ -116,6 +116,23 @@ export class BackendServicesService {
       metadata: { slug: service.slug },
     });
     return this.get(actorUserId, service.id);
+  }
+
+  async deletePermanently(actorUserId: string, serviceId: string) {
+    const existing = await this.get(actorUserId, serviceId);
+    if (existing.status !== 'disabled') {
+      throw new BadRequestException('Service must be disabled before permanent deletion');
+    }
+    await this.prisma.backendService.delete({ where: { id: serviceId } });
+    await this.audit.record({
+      organizationId: existing.organizationId,
+      actorUserId,
+      action: 'backend_service.deleted',
+      targetType: 'backend_service',
+      targetId: serviceId,
+      metadata: { slug: existing.slug },
+    });
+    return { ok: true };
   }
 
   async disable(actorUserId: string, serviceId: string) {

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { authRoute } from './_auth';
 import { api } from '../api/client';
+import { ConfirmDialog } from '../components/confirm-dialog';
 
 interface ServiceDetail {
   id: string;
@@ -28,6 +29,7 @@ function ServiceDetailPage() {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showDelete, setShowDelete] = useState(false);
 
   const { data: service, isLoading } = useQuery({
     queryKey: ['service', serviceId],
@@ -45,6 +47,14 @@ function ServiceDetailPage() {
       setEditing(false);
     },
     onError: (err: Error) => setError(err.message),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => api.post(`/v1/services/${serviceId}/delete`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['services'] });
+      navigate({ to: '/services' });
+    },
   });
 
   const disableMutation = useMutation({
@@ -96,6 +106,11 @@ function ServiceDetailPage() {
               }}
             >
               Disable
+            </button>
+          )}
+          {service.status === 'disabled' && (
+            <button className="btn-danger" onClick={() => setShowDelete(true)}>
+              Delete
             </button>
           )}
         </div>
@@ -156,6 +171,17 @@ function ServiceDetailPage() {
           </div>
         )}
       </div>
+
+      {showDelete && (
+        <ConfirmDialog
+          title="Delete Backend Service"
+          message={`Permanently delete "${service.name}"? All API keys for this service will be deleted. This cannot be undone.`}
+          confirmLabel="Delete"
+          danger
+          onConfirm={() => deleteMutation.mutate()}
+          onCancel={() => setShowDelete(false)}
+        />
+      )}
     </div>
   );
 }

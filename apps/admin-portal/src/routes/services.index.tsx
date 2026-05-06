@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { createRoute, Link, useNavigate } from '@tanstack/react-router';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { authRoute } from './_auth';
 import { api } from '../api/client';
+import { ConfirmDialog } from '../components/confirm-dialog';
 
 interface ServiceItem {
   id: string;
@@ -26,6 +28,8 @@ interface ServicesResponse {
 function ServicesListPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+
   const { data, isLoading } = useQuery({
     queryKey: ['services'],
     queryFn: () => api.get<ServicesResponse>('/v1/services'),
@@ -34,6 +38,14 @@ function ServicesListPage() {
   const disableMutation = useMutation({
     mutationFn: (serviceId: string) => api.delete(`/v1/services/${serviceId}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['services'] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (serviceId: string) => api.post(`/v1/services/${serviceId}/delete`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['services'] });
+      setDeleteTarget(null);
+    },
   });
 
   const services = data?.items ?? [];
@@ -110,6 +122,14 @@ function ServicesListPage() {
                           Disable
                         </button>
                       )}
+                      {svc.status === 'disabled' && (
+                        <button
+                          className="btn-danger"
+                          onClick={() => setDeleteTarget({ id: svc.id, name: svc.name })}
+                        >
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -117,6 +137,17 @@ function ServicesListPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title="Delete Backend Service"
+          message={`Permanently delete "${deleteTarget.name}"? All API keys for this service will be deleted. This cannot be undone.`}
+          confirmLabel="Delete"
+          danger
+          onConfirm={() => deleteMutation.mutate(deleteTarget.id)}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   );
