@@ -23,7 +23,7 @@ func main() {
 	rawClient := validation.NewClient(cfg.ControlPlaneURL)
 
 	var (
-		validator    middleware.Validator    = rawClient
+		validator    middleware.Validator      = rawClient
 		lookupClient middleware.QueryKeyLookup = rawClient
 	)
 

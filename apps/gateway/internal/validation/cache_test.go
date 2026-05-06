@@ -15,7 +15,7 @@ func TestCachingClientValidate(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&calls, 1)
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"valid":true,"api_key":{"id":"k1","prefix":"pk_test"},"backend_service":{"id":"s1","slug":"sample","base_url":"http://up:6060","allowed_routes":[{"method":"GET","path":"/*"}]}}`))
+		_, _ = w.Write([]byte(`{"valid":true,"api_key":{"id":"k1","prefix":"pk_test"},"backend_service":{"id":"s1","slug":"sample","base_url":"http://up:6060","allowed_routes":[{"method":"GET","path":"/*"}]}}`))
 	}))
 	defer srv.Close()
 
@@ -58,7 +58,7 @@ func TestCachingClientNegativeCache(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&calls, 1)
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"valid":false,"reason":"invalid_key"}`))
+		_, _ = w.Write([]byte(`{"valid":false,"reason":"invalid_key"}`))
 	}))
 	defer srv.Close()
 
@@ -90,7 +90,7 @@ func TestCachingClientTTLExpiry(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&calls, 1)
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"valid":true,"api_key":{"id":"k1","prefix":"pk_test"},"backend_service":{"id":"s1","slug":"sample","base_url":"http://up:6060","allowed_routes":[{"method":"GET","path":"/*"}]}}`))
+		_, _ = w.Write([]byte(`{"valid":true,"api_key":{"id":"k1","prefix":"pk_test"},"backend_service":{"id":"s1","slug":"sample","base_url":"http://up:6060","allowed_routes":[{"method":"GET","path":"/*"}]}}`))
 	}))
 	defer srv.Close()
 
@@ -100,14 +100,14 @@ func TestCachingClientTTLExpiry(t *testing.T) {
 
 	input := validation.Input{APIKey: "pk.key1", ServiceSlug: "sample"}
 
-	cache.Validate(input) // call 1
+	_, _ = cache.Validate(input) // call 1
 	if n := atomic.LoadInt32(&calls); n != 1 {
 		t.Fatalf("expected 1 call, got %d", n)
 	}
 
 	time.Sleep(60 * time.Millisecond) // wait for TTL to expire
 
-	cache.Validate(input) // call 2 — should miss cache
+	_, _ = cache.Validate(input) // call 2 — should miss cache
 	if n := atomic.LoadInt32(&calls); n != 2 {
 		t.Fatalf("expected 2 calls after TTL expiry, got %d", n)
 	}
@@ -118,7 +118,7 @@ func TestCachingClientLookup(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&calls, 1)
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"valid":true,"api_key":{"id":"k1","prefix":"pk_test"},"backend_service":{"id":"s1","slug":"my-api","base_url":"http://up:3130","allowed_routes":[{"method":"GET","path":"/*"}]}}`))
+		_, _ = w.Write([]byte(`{"valid":true,"api_key":{"id":"k1","prefix":"pk_test"},"backend_service":{"id":"s1","slug":"my-api","base_url":"http://up:3130","allowed_routes":[{"method":"GET","path":"/*"}]}}`))
 	}))
 	defer srv.Close()
 
