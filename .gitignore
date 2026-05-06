@@ -16,3 +16,7 @@ apps/**/.vite
 .claude/
 AGENTS.md
 CLAUDE.md
+
+# Go build artifacts
+apps/sample-backend/sample-backend
+apps/gateway/gateway

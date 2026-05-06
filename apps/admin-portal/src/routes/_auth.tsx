@@ -1,4 +1,4 @@
-import { createRoute, Outlet } from '@tanstack/react-router';
+import { createRoute } from '@tanstack/react-router';
 import { rootRoute } from './__root';
 import { AuthGuard } from '../auth/auth-guard';
 import { Layout } from '../components/layout';
