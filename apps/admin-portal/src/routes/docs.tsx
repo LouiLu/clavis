@@ -9,6 +9,7 @@ const SECTIONS = [
   { id: 'rate-limiting', label: 'Rate Limiting' },
   { id: 'monitoring', label: 'Monitoring & Metrics' },
   { id: 'performance', label: 'Performance & Capacity' },
+  { id: 'deployment', label: 'Deployment & Scaling' },
 ];
 
 function DocsNav({ activeId }: { activeId: string }) {
@@ -388,6 +389,166 @@ services:
               The gateway adds 5–15ms of overhead per request. The dominant variable is your
               backend's response time. Clavis itself scales to hundreds of millions of calls
               per month on modest hardware before needing horizontal scaling.
+            </p>
+          </div>
+        </section>
+
+        <section className="docs-section" id="deployment">
+          <h2>Deployment & Scaling</h2>
+          <p>
+            Clavis is designed to scale from a single Docker Compose host to a multi-replica
+            Kubernetes cluster with no code changes — all configuration is environment-variable
+            driven and all services are stateless.
+          </p>
+
+          <h3>Deployment Tiers</h3>
+          <div className="docs-table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr><th>Tier</th><th>Infrastructure</th><th>Capacity</th><th>When to use</th></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Tier 1</strong></td>
+                  <td>Docker Compose</td>
+                  <td>Up to 100M calls/month</td>
+                  <td>Development, staging, low-traffic production</td>
+                </tr>
+                <tr>
+                  <td><strong>Tier 2</strong></td>
+                  <td>Compose + managed DB/Redis</td>
+                  <td>100M–500M calls/month</td>
+                  <td>Production with minimal ops burden</td>
+                </tr>
+                <tr>
+                  <td><strong>Tier 3</strong></td>
+                  <td>Kubernetes + managed services</td>
+                  <td>500M+ calls/month</td>
+                  <td>High scale, multi-team, multi-region</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Tier 1: Docker Compose</h3>
+          <p>
+            The current <code>docker-compose.yml</code> runs all services on a single host.
+            Suitable for development and moderate production loads. The gateway and control
+            plane are the only externally-facing services.
+          </p>
+          <div className="docs-code">
+            <pre>{`# Scale up with more control-plane instances
+docker compose up -d --scale control-plane=3`}</pre>
+          </div>
+
+          <h3>Tier 2: Compose + Managed Services</h3>
+          <p>
+            Swap in managed infrastructure for stateful components while keeping
+            application services on Compose:
+          </p>
+          <ul>
+            <li><strong>PostgreSQL → AWS RDS / GCP Cloud SQL:</strong> set <code>DATABASE_URL</code> to the managed instance</li>
+            <li><strong>Redis → AWS ElastiCache / GCP Memorystore:</strong> set <code>REDIS_URL</code> to the managed instance</li>
+            <li><strong>Admin Portal → S3 + CloudFront:</strong> build the Vite output and upload to a CDN-backed bucket</li>
+            <li><strong>Gateway + Control Plane:</strong> run on VMs with autoscaling groups, pointing at the managed DB/Redis</li>
+          </ul>
+          <p>
+            This gives you managed backups, snapshots, and high availability for stateful
+            components without the complexity of Kubernetes.
+          </p>
+
+          <h3>Tier 3: Kubernetes</h3>
+          <p>
+            All Clavis services map cleanly to Kubernetes primitives. The repository
+            includes a full set of manifests in <code>deploy/k8s/</code>:
+          </p>
+          <div className="docs-code">
+            <pre>{`deploy/k8s/
+├── namespace.yaml          # clavis namespace
+├── configmap.yaml          # Non-sensitive configuration
+├── secret.yaml             # DATABASE_URL, REDIS_URL, credentials
+├── control-plane.yaml      # Deployment (2 replicas) + Service
+├── gateway.yaml            # Deployment (3 replicas) + Service
+├── admin-portal.yaml       # Deployment (2 replicas) + Service
+├── migrate-seed.yaml       # One-shot Job (Prisma migrate + seed)
+├── hpa.yaml                # HorizontalPodAutoscaler (CPU 70%)
+├── ingress.yaml            # TLS + routing (api. / admin. hosts)
+└── kustomization.yaml      # Ties it all together`}</pre>
+          </div>
+
+          <h4>Architecture on Kubernetes</h4>
+          <div className="docs-diagram">
+            <pre>{`                   ┌──────────────────┐
+                   │   Cloud LB / Nginx │
+                   │     Ingress        │
+                   └───┬────────────┬───┘
+                       │            │
+              ┌────────▼──┐  ┌─────▼──────────┐
+              │  Gateway  │  │  Admin Portal  │
+              │  3-20 pod │  │    2 pods      │
+              │  (HPA)    │  │   (nginx)      │
+              └─────┬─────┘  └────────────────┘
+                    │
+              ┌─────▼──────────┐
+              │ Control Plane  │
+              │   2-10 pods    │
+              │    (HPA)       │
+              └──┬─────────┬───┘
+                 │         │
+        ┌────────▼──┐ ┌───▼──────────┐
+        │   Redis   │ │ PostgreSQL   │
+        │ (managed) │ │  (managed)   │
+        └───────────┘ └──────────────┘`}</pre>
+          </div>
+
+          <h4>Deploying</h4>
+          <div className="docs-code">
+            <pre>{`# Build and push images
+docker build -t clavis/gateway:latest -f apps/gateway/Dockerfile .
+docker build -t clavis/control-plane:latest -f apps/control-plane/Dockerfile .
+docker build -t clavis/admin-portal:latest -f apps/admin-portal/Dockerfile .
+
+# Run migrations first
+kubectl apply -f deploy/k8s/migrate-seed.yaml
+kubectl wait --for=condition=complete job/migrate-seed -n clavis
+
+# Deploy everything
+kubectl apply -k deploy/k8s/
+
+# Verify
+kubectl get pods -n clavis
+kubectl get ingress -n clavis`}</pre>
+          </div>
+
+          <h4>Key Kubernetes Details</h4>
+          <ul>
+            <li><strong>Gateway → Control Plane:</strong> uses the internal Service DNS name <code>http://control-plane.clavis.svc.cluster.local:4000</code></li>
+            <li><strong>Autoscaling:</strong> HPA scales gateway (3–20) and control-plane (2–10) based on CPU at 70% target</li>
+            <li><strong>Secrets:</strong> <code>DATABASE_URL</code>, <code>REDIS_URL</code>, and <code>SEED_ADMIN_PASSWORD</code> pulled from the <code>clavis-secrets</code> Secret</li>
+            <li><strong>Health probes:</strong> both services expose <code>/health</code> — used for liveness and readiness checks</li>
+            <li><strong>TLS:</strong> ingress terminates TLS via cert-manager (Let's Encrypt), routing <code>api.example.com</code> to the gateway and <code>admin.example.com</code> to the admin portal</li>
+            <li><strong>Migrations:</strong> run as a one-shot Job before each deploy — idempotent <code>prisma migrate deploy</code></li>
+          </ul>
+
+          <h3>What Doesn't Need to Change</h3>
+          <p>
+            The codebase is already 12-factor compliant. No code changes are needed to move
+            between tiers:
+          </p>
+          <ul>
+            <li>All configuration comes from environment variables</li>
+            <li>All services are stateless (no local disk, no sticky sessions)</li>
+            <li>Gateway already supports graceful shutdown via <code>Shutdown()</code></li>
+            <li>Health endpoints exist on both gateway (<code>:8080/health</code>) and control plane (<code>:4000/health</code>)</li>
+            <li>Admin portal is static files — serve with any web server or CDN</li>
+          </ul>
+
+          <div className="docs-callout">
+            <strong>Recommendation</strong>
+            <p>
+              Start with Tier 2 (Compose + managed DB/Redis). It gives you 90% of the
+              reliability benefit with 10% of the operational complexity. Move to Kubernetes
+              when you need pod-level autoscaling, canary deploys, or multi-region.
             </p>
           </div>
         </section>

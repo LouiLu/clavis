@@ -1,0 +1,35 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migrate-seed
+  namespace: clavis
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate-seed
+          image: clavis/control-plane:latest
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              echo "Running Prisma migrations..."
+              npx prisma migrate deploy
+              echo "Running seed..."
+              npx tsx prisma/seed.ts
+              echo "Done."
+          envFrom:
+            - configMapRef:
+                name: clavis-config
+            - secretRef:
+                name: clavis-secrets
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
