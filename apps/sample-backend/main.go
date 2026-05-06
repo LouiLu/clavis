@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 )
 
 func main() {
@@ -27,9 +28,9 @@ func main() {
 	mux.HandleFunc("GET /routing/matrix/{version}", func(w http.ResponseWriter, r *http.Request) {
 		version := r.PathValue("version")
 		writeJSON(w, http.StatusOK, map[string]any{
-			"service": "sample-backend",
+			"service":  "sample-backend",
 			"endpoint": "routing matrix",
-			"version": version,
+			"version":  version,
 			"routes": []map[string]any{
 				{"id": "route_001", "origin": "A", "destination": "B", "distance_km": 142.5, "duration_min": 95},
 				{"id": "route_002", "origin": "A", "destination": "B", "distance_km": 158.3, "duration_min": 110},
@@ -38,8 +39,15 @@ func main() {
 		})
 	})
 
+	server := &http.Server{
+		Addr:         ":" + port,
+		Handler:      mux,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
 	log.Printf("sample backend listening on :%s", port)
-	log.Fatal(http.ListenAndServe(":"+port, mux))
+	log.Fatal(server.ListenAndServe())
 }
 
 func getenv(key string, fallback string) string {
