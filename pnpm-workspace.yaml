@@ -1,0 +1,3 @@
+packages:
+  - apps/admin-portal
+  - apps/control-plane

@@ -1,0 +1,206 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserType {
+  internal
+  external
+}
+
+enum UserStatus {
+  active
+  suspended
+  deleted
+}
+
+enum IdentityProvider {
+  local
+  company_sso
+  password
+  google
+  github
+}
+
+enum OrganizationType {
+  internal
+  customer
+  partner
+}
+
+enum MembershipRole {
+  platform_admin
+  org_admin
+  service_admin
+  developer
+  viewer
+}
+
+enum RecordStatus {
+  active
+  disabled
+}
+
+enum ApiKeyStatus {
+  active
+  revoked
+  expired
+}
+
+enum RateLimitTargetType {
+  backend_service
+  api_key
+}
+
+enum RateLimitAlgorithm {
+  token_bucket
+}
+
+model User {
+  id              String           @id @default(uuid())
+  email           String           @unique
+  displayName     String           @map("display_name")
+  passwordHash    String           @map("password_hash")
+  userType        UserType         @default(internal) @map("user_type")
+  status          UserStatus       @default(active)
+  identities      Identity[]
+  memberships     Membership[]
+  createdServices BackendService[] @relation("BackendServiceCreatedBy")
+  createdApiKeys  ApiKey[]         @relation("ApiKeyCreatedBy")
+  auditLogs       AuditLog[]       @relation("AuditActor")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model Identity {
+  id              String           @id @default(uuid())
+  userId          String           @map("user_id")
+  provider        IdentityProvider
+  providerSubject String           @map("provider_subject")
+  emailVerified   Boolean          @default(false) @map("email_verified")
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt       DateTime         @default(now()) @map("created_at")
+
+  @@unique([provider, providerSubject])
+  @@map("identities")
+}
+
+model Organization {
+  id               String           @id @default(uuid())
+  name             String
+  organizationType OrganizationType @default(internal) @map("organization_type")
+  status           RecordStatus     @default(active)
+  memberships      Membership[]
+  services         BackendService[]
+  apiKeys          ApiKey[]
+  auditLogs        AuditLog[]
+  createdAt        DateTime         @default(now()) @map("created_at")
+
+  @@map("organizations")
+}
+
+model Membership {
+  id             String         @id @default(uuid())
+  userId         String         @map("user_id")
+  organizationId String         @map("organization_id")
+  role           MembershipRole
+  status         RecordStatus   @default(active)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime       @default(now()) @map("created_at")
+
+  @@unique([userId, organizationId, role])
+  @@map("memberships")
+}
+
+model BackendService {
+  id                 String            @id @default(uuid())
+  organizationId     String            @map("organization_id")
+  name               String
+  slug               String            @unique
+  baseUrl            String            @map("base_url")
+  allowedRoutes      Json              @map("allowed_routes")
+  upstreamAuthConfig Json?             @map("upstream_auth_config")
+  status             RecordStatus      @default(active)
+  createdByUserId    String?           @map("created_by_user_id")
+  organization       Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apiKeys            ApiKey[]
+  rateLimitPolicies  RateLimitPolicy[]
+  createdBy          User?             @relation("BackendServiceCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+
+  @@map("backend_services")
+}
+
+model ApiKey {
+  id               String       @id @default(uuid())
+  organizationId   String       @map("organization_id")
+  backendServiceId String       @map("backend_service_id")
+  name             String
+  keyPrefix        String       @unique @map("key_prefix")
+  keyHash          String       @map("key_hash")
+  status           ApiKeyStatus @default(active)
+  expiresAt        DateTime?    @map("expires_at")
+  lastUsedAt       DateTime?    @map("last_used_at")
+  createdByUserId  String?      @map("created_by_user_id")
+  rotatedAt        DateTime?    @map("rotated_at")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  organization      Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  backendService    BackendService    @relation(fields: [backendServiceId], references: [id], onDelete: Cascade)
+  createdBy         User?             @relation("ApiKeyCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  rateLimitPolicies RateLimitPolicy[]
+
+  @@index([organizationId])
+  @@index([backendServiceId])
+  @@map("api_keys")
+}
+
+model RateLimitPolicy {
+  id                  String              @id @default(uuid())
+  targetType          RateLimitTargetType @map("target_type")
+  targetId            String              @map("target_id")
+  backendServiceId    String?             @map("backend_service_id")
+  apiKeyId            String?             @map("api_key_id")
+  algorithm           RateLimitAlgorithm  @default(token_bucket)
+  requestsPerInterval Int                 @map("requests_per_interval")
+  intervalSeconds     Int                 @map("interval_seconds")
+  burstSize           Int                 @map("burst_size")
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
+
+  backendService BackendService? @relation(fields: [backendServiceId], references: [id], onDelete: Cascade)
+  apiKey         ApiKey?         @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+
+  @@unique([targetType, targetId])
+  @@index([backendServiceId])
+  @@index([apiKeyId])
+  @@map("rate_limit_policies")
+}
+
+model AuditLog {
+  id             String   @id @default(uuid())
+  organizationId String?  @map("organization_id")
+  actorUserId    String?  @map("actor_user_id")
+  action         String
+  targetType     String   @map("target_type")
+  targetId       String   @map("target_id")
+  metadata       Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  actor        User?         @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([actorUserId])
+  @@index([targetType, targetId])
+  @@map("audit_logs")
+}
