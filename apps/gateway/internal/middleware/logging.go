@@ -53,6 +53,12 @@ func setRejectionReason(ctx context.Context, reason string) {
 func Logging(sender LogSender) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Skip health checks to avoid inflating metrics with infra noise.
+			if r.URL.Path == "/health" {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			rw := &responseWriter{ResponseWriter: w}
 			start := time.Now()
 
