@@ -20,7 +20,7 @@ func TestValidate(t *testing.T) {
 			}
 
 			var body map[string]string
-			json.NewDecoder(r.Body).Decode(&body)
+			_ = json.NewDecoder(r.Body).Decode(&body)
 			if body["api_key"] != "pk_test.secret" {
 				t.Errorf("expected pk_test.secret, got %s", body["api_key"])
 			}
@@ -28,7 +28,7 @@ func TestValidate(t *testing.T) {
 				t.Errorf("expected sample, got %s", body["service_slug"])
 			}
 
-			json.NewEncoder(w).Encode(map[string]any{
+			_ = json.NewEncoder(w).Encode(map[string]any{
 				"valid": true,
 				"api_key": map[string]string{
 					"id":     "key_1",
@@ -72,7 +72,7 @@ func TestValidate(t *testing.T) {
 
 	t.Run("returns invalid result for a revoked key", func(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			json.NewEncoder(w).Encode(map[string]any{
+			_ = json.NewEncoder(w).Encode(map[string]any{
 				"valid":  false,
 				"reason": "unknown_or_inactive_key",
 			})
@@ -100,12 +100,12 @@ func TestValidate(t *testing.T) {
 			}
 
 			var body map[string]string
-			json.NewDecoder(r.Body).Decode(&body)
+			_ = json.NewDecoder(r.Body).Decode(&body)
 			if body["api_key"] != "pk_test.secret" {
 				t.Errorf("expected pk_test.secret, got %s", body["api_key"])
 			}
 
-			json.NewEncoder(w).Encode(map[string]any{
+			_ = json.NewEncoder(w).Encode(map[string]any{
 				"valid": true,
 				"api_key": map[string]string{
 					"id":     "key_1",

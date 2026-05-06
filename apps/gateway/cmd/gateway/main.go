@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/redis/go-redis/v9"
@@ -59,8 +60,15 @@ func main() {
 		middleware.RateLimit(redisClient),
 	).Handle("/*", keyProxy)
 
+	server := &http.Server{
+		Addr:         ":" + cfg.Port,
+		Handler:      router,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
 	log.Printf("gateway listening on :%s", cfg.Port)
-	log.Fatal(http.ListenAndServe(":"+cfg.Port, router))
+	log.Fatal(server.ListenAndServe())
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {

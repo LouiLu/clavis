@@ -150,7 +150,7 @@ func mapValidationFailure(reason string) (int, string, string) {
 func writeError(w http.ResponseWriter, status int, code string, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"error":   code,
 		"message": message,
 	})

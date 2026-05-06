@@ -129,7 +129,7 @@ func TestAuthMiddleware(t *testing.T) {
 			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				ctxResult := middleware.GetValidationResult(r.Context())
 				if ctxResult == nil {
-					t.Error("expected validation result in context")
+					t.Fatal("expected validation result in context")
 				}
 				if ctxResult.BackendService.Slug != "sample" {
 					t.Errorf("expected slug sample, got %s", ctxResult.BackendService.Slug)
