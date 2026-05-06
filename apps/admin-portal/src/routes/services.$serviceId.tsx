@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { authRoute } from './_auth';
 import { api } from '../api/client';
 import { ConfirmDialog } from '../components/confirm-dialog';
+import { RateLimitForm, RateLimitValues } from '../components/rate-limit-form';
 import { Toast } from '../components/toast';
 
 interface ServiceDetail {
@@ -37,6 +38,7 @@ function ServiceDetailPage() {
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [editingRateLimit, setEditingRateLimit] = useState(false);
 
   const { data: service, isLoading } = useQuery({
     queryKey: ['service', serviceId],
@@ -60,6 +62,17 @@ function ServiceDetailPage() {
       setSaving(false);
     }
   };
+
+  const rateLimitMutation = useMutation({
+    mutationFn: (values: RateLimitValues) =>
+      api.put(`/v1/services/${serviceId}/rate-limit`, values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['service', serviceId] });
+      setEditingRateLimit(false);
+      setToast('Rate limit updated');
+    },
+    onError: (err: Error) => setError(err.message),
+  });
 
   const disableMutation = useMutation({
     mutationFn: () => api.delete(`/v1/services/${serviceId}`),
@@ -163,14 +176,30 @@ function ServiceDetailPage() {
           <strong>Allowed Routes</strong>
           <code>{JSON.stringify(service.allowed_routes)}</code>
 
-          {service.default_rate_limit && (
-            <>
-              <strong>Rate Limit</strong>
-              <span>
-                {service.default_rate_limit.requests_per_interval} req / {service.default_rate_limit.interval_seconds}s
-                (burst {service.default_rate_limit.burst_size})
-              </span>
-            </>
+          <strong>Rate Limit</strong>
+          {editingRateLimit ? (
+            <div>
+              <RateLimitForm
+                initial={service.default_rate_limit}
+                onSave={async (values) => {
+                  await rateLimitMutation.mutateAsync(values);
+                }}
+                onCancel={() => setEditingRateLimit(false)}
+              />
+            </div>
+          ) : (
+            <span>
+              {service.default_rate_limit
+                ? `${service.default_rate_limit.requests_per_interval} req / ${service.default_rate_limit.interval_seconds}s (burst ${service.default_rate_limit.burst_size})`
+                : 'Not set'}
+              <button
+                className="btn-secondary"
+                style={{ marginLeft: 8, fontSize: 11, padding: '2px 8px' }}
+                onClick={() => setEditingRateLimit(true)}
+              >
+                Edit
+              </button>
+            </span>
           )}
 
           <strong>Created</strong>

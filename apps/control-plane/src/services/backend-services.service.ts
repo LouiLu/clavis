@@ -153,6 +153,22 @@ export class BackendServicesService {
     return service;
   }
 
+  async getRateLimit(actorUserId: string, serviceId: string) {
+    const service = await this.get(actorUserId, serviceId);
+    const policy = service.rateLimitPolicies.find((p) => p.targetType === 'backend_service');
+    if (!policy) return null;
+    return {
+      requests_per_interval: policy.requestsPerInterval,
+      interval_seconds: policy.intervalSeconds,
+      burst_size: policy.burstSize,
+    };
+  }
+
+  async upsertRateLimit(actorUserId: string, serviceId: string, input: RateLimitInput) {
+    await this.get(actorUserId, serviceId); // authorization check
+    return this.upsertDefaultRateLimit(serviceId, input);
+  }
+
   private upsertDefaultRateLimit(serviceId: string, input?: RateLimitInput) {
     return this.prisma.rateLimitPolicy.upsert({
       where: {

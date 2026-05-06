@@ -5,6 +5,7 @@ import { authRoute } from './_auth';
 import { api } from '../api/client';
 import { ApiKeyReveal } from '../components/api-key-reveal';
 import { ConfirmDialog } from '../components/confirm-dialog';
+import { RateLimitForm, RateLimitValues } from '../components/rate-limit-form';
 import { Toast } from '../components/toast';
 
 interface KeyItem {
@@ -50,6 +51,9 @@ function ApiKeysPage() {
   const [toast, setToast] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newKeyName, setNewKeyName] = useState('');
+  const [newKeyExpiry, setNewKeyExpiry] = useState('');
+  const [editingExpiry, setEditingExpiry] = useState<{ keyId: string; expiresAt: string } | null>(null);
+  const [rateLimitKeyId, setRateLimitKeyId] = useState<string | null>(null);
 
   const { data: service } = useQuery({
     queryKey: ['service', serviceId],
@@ -62,14 +66,29 @@ function ApiKeysPage() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (name: string) =>
-      api.post<CreateKeyResponse>(`/v1/services/${serviceId}/api-keys`, { name }),
+    mutationFn: ({ name, expiresAt }: { name: string; expiresAt?: string }) =>
+      api.post<CreateKeyResponse>(`/v1/services/${serviceId}/api-keys`, {
+        name,
+        expires_at: expiresAt || undefined,
+      }),
     onSuccess: (result) => {
       setRevealedKey(result.api_key);
       queryClient.invalidateQueries({ queryKey: ['api-keys', serviceId] });
       setShowCreate(false);
       setNewKeyName('');
+      setNewKeyExpiry('');
       setError(null);
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  const updateKeyMutation = useMutation({
+    mutationFn: ({ keyId, data: data_ }: { keyId: string; data: { expires_at?: string | null } }) =>
+      api.patch(`/v1/api-keys/${keyId}`, data_),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['api-keys', serviceId] });
+      setEditingExpiry(null);
+      setToast('Key updated');
     },
     onError: (err: Error) => setError(err.message),
   });
@@ -104,10 +123,36 @@ function ApiKeysPage() {
     onError: () => setError('Failed to delete key'),
   });
 
+  const { data: keyRateLimit } = useQuery({
+    queryKey: ['key-rate-limit', rateLimitKeyId],
+    queryFn: () => api.get<RateLimitValues | null>(`/v1/api-keys/${rateLimitKeyId}/rate-limit`),
+    enabled: !!rateLimitKeyId,
+  });
+
+  const upsertKeyRateLimitMutation = useMutation({
+    mutationFn: ({ keyId, values }: { keyId: string; values: RateLimitValues }) =>
+      api.put(`/v1/api-keys/${keyId}/rate-limit`, values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['key-rate-limit', rateLimitKeyId] });
+      setToast('Key rate limit updated');
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
+  const deleteKeyRateLimitMutation = useMutation({
+    mutationFn: (keyId: string) => api.delete(`/v1/api-keys/${keyId}/rate-limit`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['key-rate-limit', rateLimitKeyId] });
+      setRateLimitKeyId(null);
+      setToast('Key rate limit removed');
+    },
+    onError: (err: Error) => setError(err.message),
+  });
+
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (newKeyName.trim()) {
-      createMutation.mutate(newKeyName.trim());
+      createMutation.mutate({ name: newKeyName.trim(), expiresAt: newKeyExpiry || undefined });
     }
   };
 
@@ -147,6 +192,15 @@ function ApiKeysPage() {
                   placeholder="e.g. Production CI"
                   autoFocus
                   required
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="key-expiry">Expires (optional)</label>
+                <input
+                  id="key-expiry"
+                  type="date"
+                  value={newKeyExpiry}
+                  onChange={(e) => setNewKeyExpiry(e.target.value)}
                 />
               </div>
             </div>
@@ -197,7 +251,52 @@ function ApiKeysPage() {
                   </td>
                   <td>{new Date(key.created_at).toLocaleDateString()}</td>
                   <td>{key.last_used_at ? new Date(key.last_used_at).toLocaleString() : 'Never'}</td>
-                  <td>{key.expires_at ? new Date(key.expires_at).toLocaleDateString() : 'Never'}</td>
+                  <td>
+                    {editingExpiry?.keyId === key.id ? (
+                      <div className="flex-row">
+                        <input
+                          type="date"
+                          value={editingExpiry.expiresAt}
+                          onChange={(e) => setEditingExpiry({ keyId: key.id, expiresAt: e.target.value })}
+                          style={{ width: 140, fontSize: 12 }}
+                        />
+                        <button
+                          className="btn-primary"
+                          onClick={() => updateKeyMutation.mutate({
+                            keyId: key.id,
+                            data: { expires_at: editingExpiry.expiresAt || null },
+                          })}
+                          disabled={updateKeyMutation.isPending}
+                          style={{ fontSize: 11, padding: '4px 8px' }}
+                        >
+                          Save
+                        </button>
+                        <button
+                          className="btn-secondary"
+                          onClick={() => setEditingExpiry(null)}
+                          style={{ fontSize: 11, padding: '4px 8px' }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <span
+                        onClick={() => {
+                          if (key.status === 'active') {
+                            setEditingExpiry({
+                              keyId: key.id,
+                              expiresAt: key.expires_at ? key.expires_at.slice(0, 10) : '',
+                            });
+                          }
+                        }}
+                        style={{ cursor: key.status === 'active' ? 'pointer' : 'default' }}
+                        title={key.status === 'active' ? 'Click to edit' : undefined}
+                      >
+                        {key.expires_at ? new Date(key.expires_at).toLocaleDateString() : 'Never'}
+                        {key.status === 'active' && ' ✎'}
+                      </span>
+                    )}
+                  </td>
                   <td>
                     <div className="flex-row">
                       {key.status === 'active' && (
@@ -214,6 +313,12 @@ function ApiKeysPage() {
                           >
                             Revoke
                           </button>
+                          <button
+                            className="btn-secondary"
+                            onClick={() => setRateLimitKeyId(rateLimitKeyId === key.id ? null : key.id)}
+                          >
+                            Rate
+                          </button>
                         </>
                       )}
                       <button
@@ -228,6 +333,29 @@ function ApiKeysPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {rateLimitKeyId && (
+        <div className="card mb-4" style={{ marginTop: 16 }}>
+          <h2>Rate Limit for Key</h2>
+          <p className="text-muted" style={{ margin: 0 }}>
+            Overrides the service-level default when set.
+          </p>
+          <RateLimitForm
+            initial={keyRateLimit ?? null}
+            onSave={async (values) => {
+              await upsertKeyRateLimitMutation.mutateAsync({ keyId: rateLimitKeyId, values });
+            }}
+            onCancel={() => setRateLimitKeyId(null)}
+            onRemove={
+              keyRateLimit
+                ? async () => {
+                    await deleteKeyRateLimitMutation.mutateAsync(rateLimitKeyId);
+                  }
+                : undefined
+            }
+          />
         </div>
       )}
 

@@ -8,6 +8,12 @@ export interface CreateApiKeyInput {
   expires_at?: string;
 }
 
+export interface RateLimitInput {
+  requests_per_interval?: number;
+  interval_seconds?: number;
+  burst_size?: number;
+}
+
 @Injectable()
 export class ApiKeysService {
   constructor(
@@ -60,6 +66,29 @@ export class ApiKeysService {
 
   get(keyId: string, actorUserId: string) {
     return this.findAccessibleKey(keyId, actorUserId);
+  }
+
+  async update(keyId: string, actorUserId: string, input: { name?: string; expires_at?: string | null }) {
+    const existing = await this.findAccessibleKey(keyId, actorUserId);
+    const data: Record<string, unknown> = {};
+    if (input.name !== undefined) data.name = input.name;
+    if (input.expires_at !== undefined) {
+      data.expiresAt = input.expires_at ? new Date(input.expires_at) : null;
+    }
+    const apiKey = await this.prisma.apiKey.update({
+      where: { id: keyId },
+      data,
+      include: { backendService: true },
+    });
+    await this.audit.record({
+      organizationId: existing.organizationId,
+      actorUserId,
+      action: 'api_key.updated',
+      targetType: 'api_key',
+      targetId: apiKey.id,
+      metadata: { prefix: apiKey.keyPrefix },
+    });
+    return apiKey;
   }
 
   async rotate(keyId: string, actorUserId: string) {
@@ -115,6 +144,68 @@ export class ApiKeysService {
       metadata: { prefix: existing.keyPrefix },
     });
     await this.prisma.apiKey.delete({ where: { id: keyId } });
+    return { ok: true };
+  }
+
+  async getRateLimit(keyId: string, actorUserId: string) {
+    await this.findAccessibleKey(keyId, actorUserId);
+    const policy = await this.prisma.rateLimitPolicy.findUnique({
+      where: { targetType_targetId: { targetType: 'api_key', targetId: keyId } },
+    });
+    if (!policy) return null;
+    return {
+      requests_per_interval: policy.requestsPerInterval,
+      interval_seconds: policy.intervalSeconds,
+      burst_size: policy.burstSize,
+    };
+  }
+
+  async upsertRateLimit(keyId: string, actorUserId: string, input: RateLimitInput) {
+    const apiKey = await this.findAccessibleKey(keyId, actorUserId);
+    const policy = await this.prisma.rateLimitPolicy.upsert({
+      where: { targetType_targetId: { targetType: 'api_key', targetId: keyId } },
+      update: {
+        requestsPerInterval: input.requests_per_interval ?? 1000,
+        intervalSeconds: input.interval_seconds ?? 60,
+        burstSize: input.burst_size ?? 100,
+      },
+      create: {
+        targetType: 'api_key',
+        targetId: keyId,
+        apiKeyId: keyId,
+        requestsPerInterval: input.requests_per_interval ?? 1000,
+        intervalSeconds: input.interval_seconds ?? 60,
+        burstSize: input.burst_size ?? 100,
+      },
+    });
+    await this.audit.record({
+      organizationId: apiKey.organizationId,
+      actorUserId,
+      action: 'api_key.rate_limit_updated',
+      targetType: 'api_key',
+      targetId: keyId,
+      metadata: { prefix: apiKey.keyPrefix },
+    });
+    return {
+      requests_per_interval: policy.requestsPerInterval,
+      interval_seconds: policy.intervalSeconds,
+      burst_size: policy.burstSize,
+    };
+  }
+
+  async deleteRateLimit(keyId: string, actorUserId: string) {
+    const apiKey = await this.findAccessibleKey(keyId, actorUserId);
+    await this.prisma.rateLimitPolicy.delete({
+      where: { targetType_targetId: { targetType: 'api_key', targetId: keyId } },
+    });
+    await this.audit.record({
+      organizationId: apiKey.organizationId,
+      actorUserId,
+      action: 'api_key.rate_limit_deleted',
+      targetType: 'api_key',
+      targetId: keyId,
+      metadata: { prefix: apiKey.keyPrefix },
+    });
     return { ok: true };
   }
 

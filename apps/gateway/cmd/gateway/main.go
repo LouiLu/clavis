@@ -20,7 +20,22 @@ import (
 func main() {
 	cfg := config.Load()
 
-	validationClient := validation.NewClient(cfg.ControlPlaneURL)
+	rawClient := validation.NewClient(cfg.ControlPlaneURL)
+
+	var (
+		validator    middleware.Validator    = rawClient
+		lookupClient middleware.QueryKeyLookup = rawClient
+	)
+
+	if cfg.ValidationCacheEnabled {
+		cachingClient := validation.NewCachingClient(
+			rawClient,
+			cfg.ValidationCacheTTL,
+			cfg.ValidationCacheNegativeTTL,
+		)
+		validator = cachingClient
+		lookupClient = cachingClient
+	}
 
 	redisOpts, err := redis.ParseURL(cfg.RedisURL)
 	if err != nil {
@@ -51,12 +66,12 @@ func main() {
 	})
 
 	router.With(
-		middleware.Auth(validationClient),
+		middleware.Auth(validator),
 		middleware.RateLimit(redisClient),
 	).Handle("/proxy/*", dynamicProxy)
 
 	router.With(
-		middleware.QueryAuth(validationClient),
+		middleware.QueryAuth(lookupClient),
 		middleware.RateLimit(redisClient),
 	).Handle("/*", keyProxy)
 

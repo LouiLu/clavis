@@ -1,9 +1,9 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Put, UseGuards } from '@nestjs/common';
 import { ApiKey, BackendService } from '@prisma/client';
 import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { AuthenticatedUser } from '../auth/types';
-import { ApiKeysService, CreateApiKeyInput } from './api-keys.service';
+import { ApiKeysService, CreateApiKeyInput, RateLimitInput } from './api-keys.service';
 
 @UseGuards(AuthGuard)
 @Controller()
@@ -57,6 +57,40 @@ export class ApiKeysController {
   @Delete('v1/api-keys/:keyId')
   delete(@Param('keyId') keyId: string, @CurrentUser() user: AuthenticatedUser) {
     return this.apiKeys.delete(keyId, user.id);
+  }
+
+  @Patch('v1/api-keys/:keyId')
+  async update(
+    @Param('keyId') keyId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: { name?: string; expires_at?: string | null },
+  ) {
+    return this.serializeApiKey(await this.apiKeys.update(keyId, user.id, body));
+  }
+
+  @Get('v1/api-keys/:keyId/rate-limit')
+  async getKeyRateLimit(
+    @Param('keyId') keyId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.apiKeys.getRateLimit(keyId, user.id);
+  }
+
+  @Put('v1/api-keys/:keyId/rate-limit')
+  async upsertKeyRateLimit(
+    @Param('keyId') keyId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: RateLimitInput,
+  ) {
+    return this.apiKeys.upsertRateLimit(keyId, user.id, body);
+  }
+
+  @Delete('v1/api-keys/:keyId/rate-limit')
+  deleteKeyRateLimit(
+    @Param('keyId') keyId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.apiKeys.deleteRateLimit(keyId, user.id);
   }
 
   private serializeApiKey(apiKey: ApiKey & { backendService: BackendService }) {

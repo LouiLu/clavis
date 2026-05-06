@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Put, UseGuards } from '@nestjs/common';
 import { BackendService, RateLimitPolicy } from '@prisma/client';
 import { AuthGuard } from '../auth/auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -6,6 +6,7 @@ import { AuthenticatedUser } from '../auth/types';
 import {
   BackendServicesService,
   CreateBackendServiceInput,
+  RateLimitInput,
   UpdateBackendServiceInput,
 } from './backend-services.service';
 
@@ -63,6 +64,23 @@ export class BackendServicesController {
     @Body() _body?: Record<string, never>,
   ) {
     return this.services.deletePermanently(user.id, serviceId);
+  }
+
+  @Get(':serviceId/rate-limit')
+  async getServiceRateLimit(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('serviceId') serviceId: string,
+  ) {
+    return this.services.getRateLimit(user.id, serviceId);
+  }
+
+  @Put(':serviceId/rate-limit')
+  async updateServiceRateLimit(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('serviceId') serviceId: string,
+    @Body() body: RateLimitInput,
+  ) {
+    return this.services.upsertRateLimit(user.id, serviceId, body);
   }
 
   private serializeService(service: BackendService & { rateLimitPolicies: RateLimitPolicy[] }) {
