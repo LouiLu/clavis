@@ -1325,3 +1325,218 @@ hr {
     width: 95%;
   }
 }
+
+/* ── Documentation ───────────────────────────── */
+
+.docs {
+  max-width: 860px;
+}
+
+.docs-section {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px 28px;
+  margin-bottom: 20px;
+}
+
+.docs-section h2 {
+  font-size: 18px;
+  margin: 0 0 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.docs-section h3 {
+  font-size: 15px;
+  margin: 24px 0 8px;
+  color: var(--text);
+}
+
+.docs-section h3:first-of-type {
+  margin-top: 16px;
+}
+
+.docs-section h4 {
+  font-size: 14px;
+  margin: 18px 0 6px;
+  color: var(--text-secondary);
+}
+
+.docs-section p {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  margin: 0 0 12px;
+}
+
+.docs-section ul {
+  margin: 0 0 12px;
+  padding-left: 20px;
+}
+
+.docs-section li {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.docs-section li strong {
+  color: var(--text);
+}
+
+.docs-code {
+  background: #0d1117;
+  border-radius: var(--radius);
+  margin: 8px 0 16px;
+  padding: 14px 18px;
+  overflow-x: auto;
+}
+
+.docs-code pre {
+  margin: 0;
+  font-family: "SF Mono", "Fira Code", "Fira Mono", "JetBrains Mono", monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #c9d1d9;
+}
+
+.docs-diagram {
+  background: #0d1117;
+  border-radius: var(--radius);
+  margin: 8px 0 16px;
+  padding: 14px 18px;
+  overflow-x: auto;
+}
+
+.docs-diagram pre {
+  margin: 0;
+  font-family: "SF Mono", "Fira Code", "Fira Mono", "JetBrains Mono", monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #8b949e;
+}
+
+.docs .data-table {
+  margin: 8px 0 16px;
+}
+
+.docs .data-table th {
+  font-size: 12px;
+}
+
+.docs .data-table td {
+  font-size: 13px;
+}
+
+.docs-callout {
+  background: #f0fdf6;
+  border: 1px solid #bbf7d0;
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 14px 18px;
+  margin: 16px 0 0;
+}
+
+.docs-callout strong {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.docs-callout p {
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+
+@media (max-width: 600px) {
+  .docs-section {
+    padding: 16px 14px;
+  }
+
+  .docs-code,
+  .docs-diagram {
+    padding: 10px 12px;
+  }
+
+  .docs-code pre,
+  .docs-diagram pre {
+    font-size: 10px;
+  }
+}
+
+/* ── Status breakdown bars ──────────────────── */
+
+.status-breakdown {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.status-row:last-child {
+  margin-bottom: 0;
+}
+
+.status-label {
+  font-size: 11px;
+  font-weight: 700;
+  width: 28px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.status-label-2xx { color: #065f46; }
+.status-label-4xx { color: #92400e; }
+.status-label-5xx { color: #991b1b; }
+
+.status-bar-bg {
+  flex: 1;
+  height: 8px;
+  background: var(--border-light);
+  border-radius: 4px;
+  overflow: hidden;
+  min-width: 40px;
+}
+
+.status-bar {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+}
+
+.status-bar-2xx { background: #10a37f; }
+.status-bar-4xx { background: #f59e0b; }
+.status-bar-5xx { background: #ef4444; }
+
+.status-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  width: 50px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── Warning stat card ──────────────────────── */
+
+.stat-card-warn {
+  border-color: #fde68a;
+  background: #fffbeb;
+}
+
+.stat-value-warn {
+  color: #92400e;
+}
+
+.chart-stat-error .chart-stat-value {
+  color: #b45309;
+}

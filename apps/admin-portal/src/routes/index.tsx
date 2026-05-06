@@ -30,10 +30,19 @@ interface AuditLogsResponse {
   items: AuditLogItem[];
 }
 
+interface StatusBreakdown {
+  '2xx': number;
+  '4xx': number;
+  '5xx': number;
+}
+
 interface MetricsOverviewResponse {
   total_requests: number;
   unique_keys: number;
   active_services: number;
+  error_count: number;
+  error_rate: number;
+  by_status: StatusBreakdown;
 }
 
 interface KeyBreakdown {
@@ -49,8 +58,10 @@ interface UsageBucket {
   keys?: KeyBreakdown[];
 }
 
-interface UsageResponse {
+interface ServiceUsageResponse {
   items: UsageBucket[];
+  error_count: number;
+  by_status: StatusBreakdown;
 }
 
 function DashboardPage() {
@@ -73,11 +84,15 @@ function DashboardPage() {
   const isLoading = results.some((r) => r.isLoading);
   const [tooltip, setTooltip] = useState<{ svcIdx: number; bucketIdx: number; x: number; y: number } | null>(null);
 
+  const metrics = metricsResult.data;
+  const errorRate = metrics?.error_rate ?? 0;
+  const hasErrors = (metrics?.error_count ?? 0) > 0;
+
   const usageQueries = useQueries({
     queries: services.map((svc) => ({
       queryKey: ['metrics', 'service', svc.id],
       queryFn: () =>
-        api.get<UsageResponse>(
+        api.get<ServiceUsageResponse>(
           `/v1/metrics/services/${svc.id}/usage?days=7&resolution=hour&include_keys=true`,
         ),
       enabled: services.length > 0,
@@ -105,19 +120,26 @@ function DashboardPage() {
               <div className="stat-label">Organization Members</div>
             </div>
             <div className="stat-card">
-              <div className="stat-value">{metricsResult.data?.total_requests ?? '--'}</div>
+              <div className="stat-value">{metrics?.total_requests?.toLocaleString() ?? '--'}</div>
               <div className="stat-label">Requests (24h)</div>
             </div>
             <div className="stat-card">
-              <div className="stat-value">{metricsResult.data?.unique_keys ?? '--'}</div>
+              <div className="stat-value">{metrics?.unique_keys ?? '--'}</div>
               <div className="stat-label">Active API Keys</div>
+            </div>
+            <div className={`stat-card${hasErrors ? ' stat-card-warn' : ''}`}>
+              <div className={`stat-value${hasErrors ? ' stat-value-warn' : ''}`}>
+                {hasErrors ? `${errorRate}%` : '0%'}
+              </div>
+              <div className="stat-label">Error Rate (24h)</div>
             </div>
           </div>
 
           <div className="dashboard-grid">
             <div className="dashboard-charts">
               {services.map((svc, i) => {
-                const buckets: UsageBucket[] = usageQueries[i]?.data?.items ?? [];
+                const usage: ServiceUsageResponse | undefined = usageQueries[i]?.data;
+                const buckets: UsageBucket[] = usage?.items ?? [];
                 const totalRequests = buckets.reduce((s, b) => s + b.requests, 0);
                 const peakRequests = Math.max(0, ...buckets.map((b) => b.requests));
                 const avgLatency =
@@ -128,6 +150,8 @@ function DashboardPage() {
                       )
                     : 0;
                 const maxReq = Math.max(1, peakRequests);
+                const svcErrorCount = usage?.error_count ?? 0;
+                const svcErrorRate = totalRequests > 0 ? Math.round((svcErrorCount / totalRequests) * 1000) / 10 : 0;
 
                 return (
                   <div className="chart-container" key={svc.id}>
@@ -155,6 +179,14 @@ function DashboardPage() {
                         <span className="chart-stat-value">{avgLatency}ms</span>
                         <span className="chart-stat-label">Avg latency</span>
                       </div>
+                      {svcErrorCount > 0 && (
+                        <div className="chart-stat chart-stat-error">
+                          <span className="chart-stat-value">{svcErrorCount}</span>
+                          <span className="chart-stat-label">
+                            Errors ({svcErrorRate}%)
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {buckets.length === 0 ? (
@@ -261,6 +293,46 @@ function DashboardPage() {
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                </div>
+              )}
+
+              {hasErrors && metrics && (
+                <div>
+                  <h2>Request Breakdown (24h)</h2>
+                  <div className="status-breakdown" style={{ marginTop: 8 }}>
+                    <div className="status-row">
+                      <span className="status-label status-label-2xx">2xx</span>
+                      <span className="status-bar-bg">
+                        <span
+                          className="status-bar status-bar-2xx"
+                          style={{ width: `${Math.max(1, (metrics.by_status['2xx'] / Math.max(1, metrics.total_requests)) * 100)}%` }}
+                        />
+                      </span>
+                      <span className="status-count">{metrics.by_status['2xx'].toLocaleString()}</span>
+                    </div>
+                    <div className="status-row">
+                      <span className="status-label status-label-4xx">4xx</span>
+                      <span className="status-bar-bg">
+                        <span
+                          className="status-bar status-bar-4xx"
+                          style={{ width: `${Math.max(1, (metrics.by_status['4xx'] / Math.max(1, metrics.total_requests)) * 100)}%` }}
+                        />
+                      </span>
+                      <span className="status-count">{metrics.by_status['4xx'].toLocaleString()}</span>
+                    </div>
+                    {metrics.by_status['5xx'] > 0 && (
+                      <div className="status-row">
+                        <span className="status-label status-label-5xx">5xx</span>
+                        <span className="status-bar-bg">
+                          <span
+                            className="status-bar status-bar-5xx"
+                            style={{ width: `${Math.max(1, (metrics.by_status['5xx'] / Math.max(1, metrics.total_requests)) * 100)}%` }}
+                          />
+                        </span>
+                        <span className="status-count">{metrics.by_status['5xx'].toLocaleString()}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

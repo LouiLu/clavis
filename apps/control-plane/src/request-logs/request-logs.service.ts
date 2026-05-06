@@ -11,6 +11,7 @@ export interface IngestEntry {
   status_code: number;
   latency_ms: number;
   timestamp: string;
+  rejection_reason?: string;
 }
 
 @Injectable()
@@ -29,6 +30,7 @@ export class RequestLogsService {
         statusCode: e.status_code,
         latencyMs: e.latency_ms,
         timestamp: new Date(e.timestamp),
+        rejectionReason: e.rejection_reason ?? null,
       })),
     });
 

@@ -43,6 +43,7 @@ func RateLimit(rdb *redis.Client) func(http.Handler) http.Handler {
 
 			if !allowed {
 				w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
+				setRejectionReason(r.Context(), "rate_limit_exceeded")
 				writeError(w, http.StatusTooManyRequests, "rate_limit_exceeded",
 					fmt.Sprintf("Rate limit exceeded. Try again in %d seconds.", retryAfter))
 				return

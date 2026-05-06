@@ -26,11 +26,14 @@ func GetValidationResult(ctx context.Context) *validation.ValidationResult {
 
 // Auth returns middleware that extracts an API key, validates it against the
 // control plane, checks route authorization, and injects the result into context.
+// On failure it writes an error response and records the rejection reason so the
+// outermost logging middleware can record it.
 func Auth(validator Validator) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			apiKey := extractAPIKey(r)
 			if apiKey == "" {
+				setRejectionReason(r.Context(), "missing_api_key")
 				writeError(w, http.StatusUnauthorized, "missing_api_key",
 					"An API key is required. Provide it via Authorization: Bearer <key> or X-API-Key header.")
 				return
@@ -38,6 +41,7 @@ func Auth(validator Validator) func(http.Handler) http.Handler {
 
 			slug, upstreamPath := extractServiceSlug(r.URL.Path)
 			if slug == "" {
+				setRejectionReason(r.Context(), "bad_request")
 				writeError(w, http.StatusBadRequest, "bad_request",
 					"Expected path format: /proxy/{service-slug}/{upstream-path}")
 				return
@@ -50,18 +54,24 @@ func Auth(validator Validator) func(http.Handler) http.Handler {
 				Path:        upstreamPath,
 			})
 			if err != nil {
+				setRejectionReason(r.Context(), "gateway_error")
 				writeError(w, http.StatusBadGateway, "gateway_error",
 					"Unable to validate the API key. Please try again later.")
 				return
 			}
 
 			if !result.Valid {
+				setRejectionReason(r.Context(), result.Reason)
 				code, codeStr, msg := mapValidationFailure(result.Reason)
 				writeError(w, code, codeStr, msg)
 				return
 			}
 
 			if !routeAllowed(result.BackendService.AllowedRoutes, r.Method, upstreamPath) {
+				setRejectionReason(r.Context(), "route_not_allowed")
+				// Inject the full result so logging can capture API key / service info.
+				ctx := context.WithValue(r.Context(), validationResultKey, result)
+				r = r.WithContext(ctx)
 				writeError(w, http.StatusForbidden, "route_not_allowed",
 					"This API key is not authorized for "+r.Method+" "+upstreamPath+" on this service.")
 				return

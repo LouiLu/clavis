@@ -33,6 +33,15 @@ func main() {
 
 	router := chi.NewRouter()
 
+	// Logging must be registered via Use() before any routes.
+	var logSender *logging.Client
+	if cfg.LoggingEnabled {
+		endpoint := strings.TrimRight(cfg.ControlPlaneURL, "/") + "/internal/v1/request-logs/ingest"
+		logSender = logging.NewClient(endpoint, cfg.LogChannelSize, cfg.LogBatchSize, cfg.LogFlushInterval)
+		defer logSender.Shutdown()
+		router.Use(middleware.Logging(logSender))
+	}
+
 	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{
 			"status":  "ok",
@@ -40,30 +49,14 @@ func main() {
 		})
 	})
 
-	var logSender *logging.Client
-	if cfg.LoggingEnabled {
-		endpoint := strings.TrimRight(cfg.ControlPlaneURL, "/") + "/internal/v1/request-logs/ingest"
-		logSender = logging.NewClient(endpoint, cfg.LogChannelSize, cfg.LogBatchSize, cfg.LogFlushInterval)
-		defer logSender.Shutdown()
-	}
-
-	logProxyMiddleware := func(next http.Handler) http.Handler { return next }
-	keyProxyMiddleware := func(next http.Handler) http.Handler { return next }
-	if logSender != nil {
-		logProxyMiddleware = middleware.Logging(logSender)
-		keyProxyMiddleware = middleware.Logging(logSender)
-	}
-
 	router.With(
 		middleware.Auth(validationClient),
 		middleware.RateLimit(redisClient),
-		logProxyMiddleware,
 	).Handle("/proxy/*", dynamicProxy)
 
 	router.With(
 		middleware.QueryAuth(validationClient),
 		middleware.RateLimit(redisClient),
-		keyProxyMiddleware,
 	).Handle("/*", keyProxy)
 
 	log.Printf("gateway listening on :%s", cfg.Port)

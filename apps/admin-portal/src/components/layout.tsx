@@ -43,6 +43,7 @@ export function Layout() {
           {navLink('/services', 'Services')}
           {navLink('/organization', 'Organization')}
           {navLink('/audit-logs', 'Audit Logs')}
+          {navLink('/docs', 'Docs')}
         </nav>
         {user && (
           <div className="sidebar-footer">

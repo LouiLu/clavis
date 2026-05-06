@@ -206,17 +206,18 @@ model AuditLog {
 }
 
 model RequestLog {
-  id             String   @id @default(uuid())
-  apiKeyId       String   @map("api_key_id")
-  organizationId String   @map("organization_id")
-  serviceId      String   @map("service_id")
-  serviceSlug    String   @map("service_slug")
-  method         String
-  path           String
-  statusCode     Int      @map("status_code")
-  latencyMs      Int      @map("latency_ms")
-  timestamp      DateTime
-  createdAt      DateTime @default(now()) @map("created_at")
+  id              String   @id @default(uuid())
+  apiKeyId        String   @map("api_key_id")
+  organizationId  String   @map("organization_id")
+  serviceId       String   @map("service_id")
+  serviceSlug     String   @map("service_slug")
+  method          String
+  path            String
+  statusCode      Int      @map("status_code")
+  latencyMs       Int      @map("latency_ms")
+  timestamp       DateTime
+  rejectionReason String?  @map("rejection_reason")
+  createdAt       DateTime @default(now()) @map("created_at")
 
   @@index([organizationId])
   @@index([serviceId, timestamp])

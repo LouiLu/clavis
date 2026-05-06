@@ -22,6 +22,7 @@ func QueryAuth(lookupClient QueryKeyLookup) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			apiKey := r.URL.Query().Get("key")
 			if apiKey == "" {
+				setRejectionReason(r.Context(), "missing_api_key")
 				writeError(w, http.StatusUnauthorized, "missing_api_key",
 					"An API key is required. Provide it via the ?key= query parameter.")
 				return
@@ -29,12 +30,14 @@ func QueryAuth(lookupClient QueryKeyLookup) func(http.Handler) http.Handler {
 
 			result, err := lookupClient.Lookup(validation.LookupInput{APIKey: apiKey})
 			if err != nil {
+				setRejectionReason(r.Context(), "gateway_error")
 				writeError(w, http.StatusBadGateway, "gateway_error",
 					"Unable to validate the API key. Please try again later.")
 				return
 			}
 
 			if !result.Valid {
+				setRejectionReason(r.Context(), result.Reason)
 				code, codeStr, msg := mapValidationFailure(result.Reason)
 				writeError(w, code, codeStr, msg)
 				return

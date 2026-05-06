@@ -14,10 +14,19 @@ export interface UsageBucket {
   keys?: KeyBreakdown[];
 }
 
+export interface StatusBreakdown {
+  '2xx': number;
+  '4xx': number;
+  '5xx': number;
+}
+
 export interface MetricsOverview {
   total_requests: number;
   unique_keys: number;
   active_services: number;
+  error_count: number;
+  error_rate: number;
+  by_status: StatusBreakdown;
   items: Array<{ day: string; requests: number }>;
 }
 
@@ -30,17 +39,28 @@ export class MetricsService {
       total_requests: number;
       unique_keys: number;
       active_services: number;
+      error_count: number;
+      count_2xx: number;
+      count_4xx: number;
+      count_5xx: number;
     }> = await this.prisma.$queryRawUnsafe(
       `SELECT
         COUNT(*)::int AS total_requests,
-        COUNT(DISTINCT api_key_id)::int AS unique_keys,
-        COUNT(DISTINCT service_id)::int AS active_services
+        COUNT(DISTINCT NULLIF(api_key_id, ''))::int AS unique_keys,
+        COUNT(DISTINCT NULLIF(service_id, ''))::int AS active_services,
+        COUNT(*) FILTER (WHERE status_code >= 400)::int AS error_count,
+        COUNT(*) FILTER (WHERE status_code >= 200 AND status_code < 300)::int AS count_2xx,
+        COUNT(*) FILTER (WHERE status_code >= 400 AND status_code < 500)::int AS count_4xx,
+        COUNT(*) FILTER (WHERE status_code >= 500)::int AS count_5xx
       FROM request_logs
       WHERE timestamp >= NOW() - INTERVAL '1 day' * $1`,
       days,
     );
 
-    const summary = result[0] ?? { total_requests: 0, unique_keys: 0, active_services: 0 };
+    const summary = result[0] ?? {
+      total_requests: 0, unique_keys: 0, active_services: 0,
+      error_count: 0, count_2xx: 0, count_4xx: 0, count_5xx: 0,
+    };
 
     const items: Array<{ day: string; requests: number }> = await this.prisma.$queryRawUnsafe(
       `SELECT
@@ -57,6 +77,15 @@ export class MetricsService {
       total_requests: summary.total_requests,
       unique_keys: summary.unique_keys,
       active_services: summary.active_services,
+      error_count: summary.error_count,
+      error_rate: summary.total_requests > 0
+        ? Math.round((summary.error_count / summary.total_requests) * 10000) / 100
+        : 0,
+      by_status: {
+        '2xx': summary.count_2xx,
+        '4xx': summary.count_4xx,
+        '5xx': summary.count_5xx,
+      },
       items,
     };
   }
@@ -66,7 +95,7 @@ export class MetricsService {
     days: number,
     resolution: 'hour' | 'day',
     includeKeys?: boolean,
-  ): Promise<{ items: UsageBucket[] }> {
+  ): Promise<{ items: UsageBucket[]; error_count: number; by_status: StatusBreakdown }> {
     this.validateResolution(resolution);
 
     const items: UsageBucket[] = await this.prisma.$queryRawUnsafe(
@@ -81,6 +110,25 @@ export class MetricsService {
       serviceId,
       days,
     );
+
+    const errorResult: Array<{
+      error_count: number;
+      count_2xx: number;
+      count_4xx: number;
+      count_5xx: number;
+    }> = await this.prisma.$queryRawUnsafe(
+      `SELECT
+        COUNT(*) FILTER (WHERE status_code >= 400)::int AS error_count,
+        COUNT(*) FILTER (WHERE status_code >= 200 AND status_code < 300)::int AS count_2xx,
+        COUNT(*) FILTER (WHERE status_code >= 400 AND status_code < 500)::int AS count_4xx,
+        COUNT(*) FILTER (WHERE status_code >= 500)::int AS count_5xx
+      FROM request_logs
+      WHERE service_id = $1 AND timestamp >= NOW() - INTERVAL '1 day' * $2`,
+      serviceId,
+      days,
+    );
+
+    const statusSummary = errorResult[0] ?? { error_count: 0, count_2xx: 0, count_4xx: 0, count_5xx: 0 };
 
     if (includeKeys && items.length > 0) {
       const keys: Array<{
@@ -105,6 +153,7 @@ export class MetricsService {
 
       const keyMap = new Map<string, KeyBreakdown[]>();
       for (const k of keys) {
+        if (!k.key_id) continue;
         const list = keyMap.get(k.bucket) ?? [];
         list.push({ key_id: k.key_id, key_prefix: k.key_prefix, requests: k.requests });
         keyMap.set(k.bucket, list);
@@ -115,7 +164,15 @@ export class MetricsService {
       }
     }
 
-    return { items };
+    return {
+      items,
+      error_count: statusSummary.error_count,
+      by_status: {
+        '2xx': statusSummary.count_2xx,
+        '4xx': statusSummary.count_4xx,
+        '5xx': statusSummary.count_5xx,
+      },
+    };
   }
 
   async keyUsage(
